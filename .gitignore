@@ -1,4 +1,4 @@
 ./.idea/*
-./pokergui/*.yaml
+./pokergui/*
 ./__pycache__/*
 ./bots/__pycache__/*
