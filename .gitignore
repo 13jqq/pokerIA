@@ -1,0 +1,3 @@
+./.idea/*
+./pokergui/*.yaml
+./__pycache__/*
