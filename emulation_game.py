@@ -13,6 +13,9 @@ def setup_game_state(uuid,round_state, my_hole_card):
             # We don't know hole card of opponents. So attach them at random from deck.
             game_state = attach_hole_card_from_deck(game_state, uuid)
 
+def toId_state(round_state, my_hole_card):
+    pass
+
 emulator = Emulator()
 emulator.set_game_rule(player_num=3, max_round=10, small_blind_amount=5, ante_amount=0)
 # 2. Setup GameState object
@@ -24,8 +27,6 @@ initial_state = emulator.generate_initial_game_state(players_info)
 emulator.register_player("uuid-1", RandomModel())
 emulator.register_player("uuid-2", RandomModel())
 game_state, events = emulator.start_new_round(initial_state)
-round_finish_state, events = emulator.run_until_round_finish(game_state)
-
-#updated_state, events = emulator.apply_action(game_state, "call", 10)
+updated_state, events = emulator.apply_action(game_state, "call", 10)
 print(events)
 

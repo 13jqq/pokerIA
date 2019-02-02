@@ -1,8 +1,6 @@
 import numpy as np
 import config
 
-
-
 class Node():
 
     def __init__(self, state):
@@ -29,9 +27,8 @@ class Edge():
 
         self.stats = {
             'N': 0,
-            'W': 0,
             'R': 0,
-            'P': prior,
+            'P': prior
         }
 
 
@@ -84,8 +81,9 @@ class ISMCTS():
 
             newState, value, done = currentNode.state.takeAction(
                 simulationAction)  # the value of the newState from the POV of the new playerTurn
+            breadcrumbs.append((currentNode,simulationEdge))
             currentNode = simulationEdge.outNode
-            breadcrumbs.append(simulationEdge)
+
 
         return currentNode, value, done, breadcrumbs
 
@@ -93,16 +91,20 @@ class ISMCTS():
 
         currentPlayer = leaf.state.playerTurn
 
-        for edge in breadcrumbs:
-            playerTurn = edge.playerTurn
+        for node,selEdge in breadcrumbs:
+            playerTurn = node.playerTurn
+            totalregret=sum([edge.stats['R'] for edge in node.edges])
             if playerTurn == currentPlayer:
                 direction = 1
             else:
                 direction = -1
 
-            edge.stats['N'] = edge.stats['N'] + 1
-            edge.stats['W'] = edge.stats['W'] + value * direction
-            edge.stats['Q'] = edge.stats['W'] / edge.stats['N']
+            for edge in node.edges:
+                edge.stats['N'] = edge.stats['N'] + 1
+                if selEdge.id == edge.id:
+                    edge.stats['R'] = edge.stats['R'] + direction * value * (1-edge.stats['P'])
+                else:
+                    edge.stats['R'] = edge.stats['R'] + direction * (-value *edge.stats['P'])
 
     def addNode(self, node):
         self.tree[node.id] = node
