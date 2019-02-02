@@ -15,7 +15,6 @@ def estimate_win_rate(nb_simulation, nb_player, hole_card, community_card=None):
     win_count = sum([montecarlo_simulation(nb_player, hole_card, community_card) for _ in range(nb_simulation)])
     return 1.0 * win_count / nb_simulation
 
-
 def montecarlo_simulation(nb_player, hole_card, community_card):
     # Do a Monte Carlo simulation given the current state of the game by evaluating the hands
     community_card = _fill_community_card(community_card, used_card=hole_card + community_card)
@@ -25,8 +24,8 @@ def montecarlo_simulation(nb_player, hole_card, community_card):
     my_score = HandEvaluator.eval_hand(hole_card, community_card)
     return 1 if my_score >= max(opponents_score) else 0
 
-
 class MonteCarloBot(BasePokerPlayer):
+
     def __init__(self):
         super().__init__()
         self.wins = 0
@@ -86,7 +85,6 @@ class MonteCarloBot(BasePokerPlayer):
         is_winner = self.uuid in [item['uuid'] for item in winners]
         self.wins += int(is_winner)
         self.losses += int(not is_winner)
-
 
 def setup_ai():
     return MonteCarloBot()

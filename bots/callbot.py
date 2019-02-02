@@ -2,6 +2,7 @@ from pypokerengine.players import BasePokerPlayer
 import numpy as np
 
 class CallBot(BasePokerPlayer):
+
     def declare_action(self, valid_actions, hole_card, round_state):
         actions = [item for item in valid_actions if item['action'] in ['call']]
         return list(np.random.choice(actions).values())
