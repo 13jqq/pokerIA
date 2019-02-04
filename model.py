@@ -6,15 +6,14 @@ from keras import regularizers
 import tensorflow as tf
 
 def model_body(x):
-    for i in range(config.network_param['NB_HIDDEN_LAYERS']):
-        x=Dense(500,
-                activation='relu',
-                use_bias=True,
-                kernel_initializer='glorot_normal',
-                bias_initializer='zeros',
-                kernel_regularizer=regularizers.l2(config.training_param['REG_CONST'])
-                )(x)
-        x = BatchNormalization()(x)
+    x=Dense(500,
+            activation='relu',
+            use_bias=True,
+            kernel_initializer='glorot_normal',
+            bias_initializer='zeros',
+            kernel_regularizer=regularizers.l2(config.training_param['REG_CONST'])
+            )(x)
+    x = BatchNormalization()(x)
     return x
 
 def value_head(x):
@@ -64,6 +63,8 @@ def build_model():
     main_input = Input(shape = config.game_param['MAX_PLAYER'], name = 'main_input')
 
     x = model_body(main_input)
+    for i in range(config.network_param['NB_HIDDEN_LAYERS']-1):
+        x = model_body(x)
 
     vh = value_head(x)
     ph = policy_head(x)
