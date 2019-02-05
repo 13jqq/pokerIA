@@ -1,12 +1,12 @@
 game_param={
-    'MAX_PLAYER': 10,
-    'RAISE_PARTITION_NUM': 10
-
+    'MAX_PLAYER': 2,
+    'RAISE_PARTITION_NUM': 10,
+    'ACTIONID' : ['ANTE','SMALLBLIND','BIGBLIND','FOLD','CALL','RAISE']
 }
 
-ismcts_sim={
+mccfr={
     'EPISODES': 30,
-    'MCTS_SIMS': 50,
+    'MCCFR_SIMS': 50,
     'MEMORY_SIZE': 30000
 }
 

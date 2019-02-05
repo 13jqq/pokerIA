@@ -1,9 +1,13 @@
 import config
 from keras.models import Model
-from keras.layers import Input, Dense, BatchNormalization, LeakyReLU
+from keras.layers import Input, Dense, BatchNormalization, LeakyReLU, Concatenate, LSTM
 from keras.optimizers import SGD
 from keras import regularizers
 import tensorflow as tf
+
+def model_preprocessing(x):
+    x=LSTM(100)(x)
+    return x
 
 def model_body(x):
     x=Dense(500,
