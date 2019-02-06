@@ -16,8 +16,11 @@ def setup_game_state(uuid,round_state, my_hole_card):
     return game_state
 
 emulator = Emulator()
-emulator.set_game_rule(player_num=3, max_round=10, small_blind_amount=5, ante_amount=20)
+emulator2=Emulator()
+emulator.set_game_rule(player_num=3, max_round=10, small_blind_amount=5, ante_amount=0)
+
 # 2. Setup GameState object
+
 players_info = {
     "uuid-1": {"name": "player1", "stack": 100},
     "uuid-2": {"name": "player2", "stack": 100}
@@ -38,14 +41,16 @@ print(game_state)
 
 game_state, events = emulator.start_new_round(game_state)
 print(game_state)
-print(game_state['table'].seats.players[0].action_histories)
-print([player.uuid for player in game_state['table'].seats.players])
 print(events[-1]["round_state"])
 game_state, events = emulator.apply_action(game_state, "raise", 20)
-print([player.stack + player.paid_sum() for player in game_state['table'].seats.players])
+print(game_state)
 print(events[-1]["round_state"])
-test=GameState("uuid-i",events[-1]["round_state"], gen_cards(['DJ','HJ']))
-print(test.id)
+test=GameState("uuid-1",events[-1]["round_state"], gen_cards(['DJ','HJ']))
+print(test.id,test.model_input)
+test2,value,done=test.takeAction({'action':"fold",'amount':0},emulator)
+print(test2.id,value,done)
+
+
 """
 game_state, events = emulator.apply_action(game_state, "raise", 20)
 print([player.stack + player.paid_sum() for player in game_state['table'].seats.players])
