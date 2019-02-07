@@ -46,7 +46,7 @@ game_state, events = emulator.apply_action(game_state, "raise", 20)
 print(game_state)
 print(events[-1]["round_state"])
 test=GameState("uuid-1",events[-1]["round_state"], gen_cards(['DJ','HJ']))
-print(test.id,test.model_input)
+print(test.id,test.playerTurn,test.allowed_action)
 test2,value,done=test.takeAction({'action':"fold",'amount':0},emulator)
 print(test2.id,value,done)
 

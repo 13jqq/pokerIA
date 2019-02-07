@@ -4,8 +4,8 @@ channels:
   - defaults
 dependencies:
   - certifi=2018.11.29=py36_0
-  - cudatoolkit=10.0.130=0
-  - cudnn=7.3.1=cuda10.0_0
+  - cudatoolkit=9.0=1
+  - cudnn=7.3.1=cuda9.0_0
   - vc=14.1=h21ff451_3
   - vs2015_runtime=15.5.2=3
   - pip=18.1=py36_0

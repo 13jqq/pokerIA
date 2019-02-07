@@ -4,6 +4,7 @@ import numpy as np
 import config
 from pypokerengine.utils.game_state_utils import\
         restore_game_state, attach_hole_card, attach_hole_card_from_deck
+from pypokerengine.engine.action_checker import ActionChecker
 
 def parse_action(action,divider=1):
     id=[0] * len(config.game_param['ACTIONID'])
@@ -28,6 +29,9 @@ class GameState():
         if self.state['next_player'] is not None:
             self.playerTurn = self.state['table'].seats.players[self.state['next_player']].uuid
         self.total_money = sum([player.stack + player.paid_sum() for player in self.state['table'].seats.players])
+        self.allowed_action = None
+        if self.state['next_player'] is not None:
+            self.allowed_action = ActionChecker().legal_actions(self.state['table'].seats.players,self.state['next_player'],self.state['small_blind_amount'])
         self.id = self._convertStateToId()
         self.model_input=self._convertStateToModelInput()
 
@@ -70,7 +74,7 @@ class GameState():
     def takeAction(self, action, emulator):
 
         game_state, events = emulator.apply_action(self.state, action['action'], action['amount'])
-        value = {player.uuid:0 for player in self.state['table'].seats.players}
+        value = {self.playerTurn: 0}
         done = 0
         newState = GameState(self.my_uuid, events[-1]['round_state'], self.my_hole_card)
         if events[-1]['type']=="event_round_finish":

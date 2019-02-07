@@ -1,6 +1,6 @@
 game_param={
     'MAX_PLAYER': 2,
-    'RAISE_PARTITION_NUM': 10,
+    'RAISE_PARTITION_NUM': 100,
     'ACTIONID' : ['ANTE','SMALLBLIND','BIGBLIND','FOLD','CALL','RAISE']
 }
 
@@ -25,5 +25,5 @@ valuation_param={
 }
 
 network_param={
-    'NB_HIDDEN_LAYERS': 7
+    'NB_HIDDEN_LAYERS': 1
 }

@@ -1,6 +1,8 @@
 from pypokerengine.players import BasePokerPlayer
 from pypokerengine.api.emulator import Emulator
 from gamestate import GameState
+import config
+import math
 import mccfr as mc
 import numpy as np
 
@@ -80,10 +82,23 @@ class RLPLayer(BasePokerPlayer):
 
         mask = np.ones(logits.shape, dtype=bool)
         mask[allowedActions] = False
-        logits[mask] = -100
+        logits[mask] = -math.inf
 
         # SOFTMAX
         odds = np.exp(logits)
         probs = odds / np.sum(odds)  ###put this just before the for?
 
         return ((value, probs, allowedActions))
+
+    def getAV(self):
+        edges = self.mccfr.root.edges
+        pi = np.zeros(config.game_param['RAISE_PARTITION_NUM']+2, dtype=np.integer)
+
+        for action, edge in edges:
+            pi[action] = edge.stats['R']
+
+        pi = pi / (np.sum(pi))
+        return pi
+
+    def build_allowed_action(self, allowed_action):
+        pass

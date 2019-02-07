@@ -1,22 +1,36 @@
 import config
 from keras.models import Model
-from keras.layers import Input, Dense, BatchNormalization, LeakyReLU, Concatenate, average, LSTM
+from keras.layers import Input, Dense, BatchNormalization, LeakyReLU, Concatenate, average, LSTM, Masking
 from keras.optimizers import SGD
 from keras import regularizers
-import tensorflow as tf
 
-def model_preprocessing(x):
-    x=LSTM(100)(x)
+sharedLSTM=LSTM(100,
+           activation='relu',
+           recurrent_activation='relu',
+           use_bias = True,
+           kernel_initializer = 'glorot_uniform',
+           recurrent_initializer = 'identity',
+           bias_initializer = 'zeros',
+           unit_forget_bias = True,
+           kernel_regularizer=regularizers.l2(config.training_param['REG_CONST']),
+           recurrent_regularizer=None,
+           name='preprocess_action')
+
+
+def actions_preprocessing(x):
+    x=Masking(mask_value=0.0)(x)
+    x=sharedLSTM(x)
     return x
 
-def model_body(x):
-    for i in range(config.network_param['NB_HIDDEN_LAYERS'] - 1):
+def model_hidden(x):
+    for i in range(config.network_param['NB_HIDDEN_LAYERS']):
         x=Dense(500,
                 activation='relu',
                 use_bias=True,
                 kernel_initializer='glorot_normal',
                 bias_initializer='zeros',
-                kernel_regularizer=regularizers.l2(config.training_param['REG_CONST'])
+                kernel_regularizer=regularizers.l2(config.training_param['REG_CONST']),
+                name='hidden_layer_'+str(i+1)
                 )(x)
         x = BatchNormalization()(x)
     return x
@@ -60,32 +74,33 @@ def policy_head(x):
         activation='sigmoid',
         kernel_initializer='glorot_normal',
         kernel_regularizer=regularizers.l2(config.training_param['REG_CONST']),
-        name='value_head'
+        name='policy_head'
     )(x)
     return (x)
 
-def build_model():
-    main_input = Input(shape=(None,14+config.game_param['MAX_PLAYER']*3), name = 'main_input')
-    my_history = Input(shape=(None,1,), name='my_history')
-    adv_history = Input(shape=(None,config.game_param['MAX_PLAYER']-1,), name='adv_history')
+def build_model(num_player):
+    main_input = Input(shape=(14+(config.game_param['MAX_PLAYER']*3),), name = 'main_input')
+    my_history = Input(shape=(None,7), name='my_history')
+    adv_history=[Input(shape=(None,7), name='adv_history_player' + str(i+1)) for i in range(num_player-1)]
 
-    x1 = model_preprocessing(my_history)
+    x1 = actions_preprocessing(my_history)
     x2=[]
-    for i in adv_history:
-        x2.append(model_preprocessing(adv_history[:,i]))
-    x2 = average(x2)
+    for h in adv_history:
+        x2.append(actions_preprocessing(h))
+    if len(x2) > 1:
+        x2 = average(x2)
+    else:
+        x2 = x2[0]
 
     final_input = Concatenate(axis=-1)([main_input,x1,x2])
 
-    x = model_body(final_input)
-
-    x = model_body(x)
+    x = model_hidden(final_input)
 
     vh = value_head(x)
     ph = policy_head(x)
 
-    model = Model(inputs=[main_input,my_history,adv_history], outputs=[vh, ph])
-    model.compile(loss={'value_head': 'mean_squared_error', 'policy_head': tf.nn.softmax_cross_entropy_with_logits},
+    model = Model(inputs=[main_input,my_history,*adv_history], outputs=[vh, ph])
+    model.compile(loss={'value_head': 'mean_squared_error', 'policy_head': 'categorical_crossentropy'},
         optimizer=SGD(lr=config.training_param['LEARNING_RATE'], momentum = config.training_param['MOMENTUM'],
                       decay=config.training_param['DECAY']),
         loss_weights={'value_head': 0.5, 'policy_head': 0.5}
