@@ -7,6 +7,7 @@ class Node():
     def __init__(self, state):
         self.state = state
         self.playerTurn = state.playerTurn
+        self.value=0
         self.id = state.id
         self.edges = []
 
@@ -48,10 +49,10 @@ class MCCFR():
         currentNode = self.root
 
         done = 0
-        value = 0
+        value = {}
 
         while not currentNode.isLeaf():
-
+            value.update({currentNode.playerTurn:currentNode.value})
             maxRU = - math.inf
             maxNodeRegret=sum([edge.stats['R'] for edge in currentNode.edges])
 
@@ -79,16 +80,18 @@ class MCCFR():
                     simulationAction = action
                     simulationEdge = edge
 
-            newState, value, done = currentNode.state.takeAction(
+            newState, lvalue, done = currentNode.state.takeAction(
                 simulationAction)  # the value of the newState from the POV of the new playerTurn
             breadcrumbs.append((currentNode,simulationEdge))
             currentNode = simulationEdge.outNode
+            value.update(lvalue)
 
         return currentNode, value, done, breadcrumbs
 
     def backFill(self, value, breadcrumbs):
 
         for node,selEdge in breadcrumbs:
+            node.value = value[node.playerTurn]
 
             for edge in node.edges:
                 if selEdge.id == edge.id:

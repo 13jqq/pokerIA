@@ -33,7 +33,6 @@ class GameState():
         if self.state['next_player'] is not None:
             self.allowed_action = ActionChecker().legal_actions(self.state['table'].seats.players,self.state['next_player'],self.state['small_blind_amount'])
         self.id = self._convertStateToId()
-        self.model_input=self._convertStateToModelInput()
 
     def _convertStateToId(self):
         hole_card = [card.__str__() for card in self.my_hole_card]
@@ -53,14 +52,25 @@ class GameState():
 
         return id
 
-    def _convertStateToModelInput(self):
-        hole_card = list(itertools.chain.from_iterable([[(card.suit-np.mean([2,4,8,16]))/np.std([2,4,8,16]),(card.rank-np.mean([2,3,4,5,6,7,8,9,10,11,12,13,14]))/np.std([2,3,4,5,6,7,8,9,10,11,12,13,14])] for card in self.my_hole_card]))
+    def convertStateToModelInput(self):
+        player=[player for player in self.state['table'].seats.players if player.uuid==self.playerTurn]
+        if len(player)==1:
+            hole_card=player[0].hole_card
+        else:
+            hole_card=self.my_hole_card
+        hole_card = list(itertools.chain.from_iterable([[(card.suit-np.mean([2,4,8,16]))/np.std([2,4,8,16]),(card.rank-np.mean([2,3,4,5,6,7,8,9,10,11,12,13,14]))/np.std([2,3,4,5,6,7,8,9,10,11,12,13,14])] for card in hole_card]))
         community_card = list(itertools.chain.from_iterable([[(card.suit-np.mean([2,4,8,16]))/np.std([2,4,8,16]),(card.rank-np.mean([2,3,4,5,6,7,8,9,10,11,12,13,14]))/np.std([2,3,4,5,6,7,8,9,10,11,12,13,14])] for card in self.state['table'].get_community_card()]))
-        cards = hole_card+community_card + ([0]*(14-len(hole_card) - len(community_card)))
+        cards = hole_card + community_card + ([0]*(14-len(hole_card) - len(community_card)))
+        action_history={player.uuid:[parse_action(action, self.total_money) for action in player.action_histories] for player in self.state['table'].seats.players}
+        my_info=[[player.stack / self.total_money, int(player.is_active()), player.paid_sum() / self.total_money] for player in self.state['table'].seats.players if player.uuid == self.my_uuid]
+        adv_info=sorted([[player.uuid, player.stack / self.total_money, int(player.is_active()), player.paid_sum() / self.total_money] for player in self.state['table'].seats.players if player.uuid != self.my_uuid], key=itemgetter(1))
+        adv_order_list=[x[0] for x in adv_info]
+        adv_info=[x[1:] for x in adv_info]
+        main_input=np.array(cards+list(itertools.chain.from_iterable(my_info+adv_info)))
+        my_history=np.array(action_history[self.my_uuid])
+        adv_history=[np.array(action_history[key]) for key in adv_order_list if key!=self.my_uuid]
 
-
-        input_model= cards
-        return(input_model)
+        return main_input, my_history, adv_history
 
     def _setup_game_state(self, round_state):
         game_state = restore_game_state(round_state)
@@ -74,7 +84,7 @@ class GameState():
     def takeAction(self, action, emulator):
 
         game_state, events = emulator.apply_action(self.state, action['action'], action['amount'])
-        value = {self.playerTurn: 0}
+        value = {}
         done = 0
         newState = GameState(self.my_uuid, events[-1]['round_state'], self.my_hole_card)
         if events[-1]['type']=="event_round_finish":
@@ -85,3 +95,5 @@ class GameState():
             done = 1
 
         return (newState, value, done)
+
+

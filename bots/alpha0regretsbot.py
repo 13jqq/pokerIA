@@ -1,16 +1,25 @@
 from pypokerengine.players import BasePokerPlayer
 from pypokerengine.api.emulator import Emulator
 from gamestate import GameState
+from model import build_model
 import config
+import random
+import argparse
 import math
 import mccfr as mc
 import numpy as np
 
+#default bot parameters
+num_player = 2
+cpuct = 1
+nb_mccfr_sim = 50
+weight = None
 
-class RLPLayer(BasePokerPlayer):
+
+class Alpha0Regret(BasePokerPlayer):
 
     def __init__(self, cpuct, mccfr_simulations, model):
-        super(RLPLayer, self).__init__()
+        super(Alpha0Regret, self).__init__()
         self.cpuct = cpuct
         self.MCCFR_simulations = mccfr_simulations
         self.model = model
@@ -44,7 +53,8 @@ class RLPLayer(BasePokerPlayer):
 
     def simulate(self):
         leaf, value, done, breadcrumbs = self.mccfr.moveToLeaf()
-        value, breadcrumbs = self.evaluateLeaf(leaf, value, done, breadcrumbs)
+        lvalue, breadcrumbs = self.evaluateLeaf(leaf, value, done, breadcrumbs)
+        value.update(lvalue)
         self.mccfr.backFill(value, breadcrumbs)
 
     def evaluateLeaf(self, leaf, value, done, breadcrumbs):
@@ -52,7 +62,7 @@ class RLPLayer(BasePokerPlayer):
         if done == 0:
 
             value, probs, allowedActions = self.get_preds(leaf.state)
-
+            leaf.value = value
             probs = probs[allowedActions]
 
             for idx, action in enumerate(allowedActions):
@@ -69,24 +79,24 @@ class RLPLayer(BasePokerPlayer):
 
     def get_preds(self, state):
         # predict the leaf
-        inputToModel = np.array([self.model.convertToModelInput(state)])
+        main_input, my_history, adv_history = state.convertStateToModelInput()
 
-        preds = self.model.predict(inputToModel)
+        preds = self.model.predict([main_input, my_history, *adv_history])
         value_array = preds[0]
         logits_array = preds[1]
         value = value_array[0]
 
         logits = logits_array[0]
 
-        allowedActions = state.allowedActions
+        allowedActions = state.allowed_action
 
         mask = np.ones(logits.shape, dtype=bool)
         mask[allowedActions] = False
-        logits[mask] = -math.inf
+        logits[mask] = - math.inf
 
         # SOFTMAX
         odds = np.exp(logits)
-        probs = odds / np.sum(odds)  ###put this just before the for?
+        probs = odds / np.sum(odds)
 
         return ((value, probs, allowedActions))
 
@@ -95,10 +105,39 @@ class RLPLayer(BasePokerPlayer):
         pi = np.zeros(config.game_param['RAISE_PARTITION_NUM']+2, dtype=np.integer)
 
         for action, edge in edges:
-            pi[action] = edge.stats['R']
+            pi[action] = max(0, edge.stats['R'])
 
         pi = pi / (np.sum(pi))
         return pi
 
+    def chooseAction(self, pi, values, exp=0):
+        if exp == 0:
+            actions = np.argwhere(pi == max(pi))
+            action = random.choice(actions)[0]
+        else:
+            action_idx = np.random.multinomial(1, pi)
+            action = np.where(action_idx == 1)[0][0]
+
+        value = values[action]
+
+        return action, value
+
     def build_allowed_action(self, allowed_action):
         pass
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--nump', '-np', default=num_player, help='number of player')
+    parser.add_argument('--cpuct', '-cp', default=cpuct, help='cpuct')
+    parser.add_argument('--mccfr_simulations', '-mc', default=nb_mccfr_sim, help='Number of montecarlo simulation')
+    parser.add_argument('--weight', '-w', default=weight, help='path for weights')
+    return parser.parse_args()
+
+def setup_ai():
+    args = parse_args()
+    model = build_model(args.nump)
+    if args.weight is not None:
+        model.load_weights(args.weight, by_name=True)
+    return Alpha0Regret(args.cpuct, args.mccfr_simulations, model)
+
+
