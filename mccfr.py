@@ -52,9 +52,9 @@ class MCCFR():
         value = {}
 
         while not currentNode.isLeaf():
-            value.update({currentNode.playerTurn:currentNode.value})
+            value.update({currentNode.playerTurn: currentNode.value})
             maxRU = - math.inf
-            maxNodeRegret=sum([edge.stats['R'] for edge in currentNode.edges])
+            totalAbsRegret=sum([abs(edge.stats['R']) for edge in currentNode.edges])
 
             if currentNode == self.root:
                 epsilon = config.EPSILON
@@ -73,7 +73,7 @@ class MCCFR():
                     ((1 - epsilon) * edge.stats['P'] + epsilon * nu[idx]) * \
                     np.sqrt(Nb) / (1 + edge.stats['N'])
 
-                R = edge.stats['R']/maxNodeRegret
+                R = edge.stats['R']/totalAbsRegret
 
                 if R + U > maxRU:
                     maxRU = R + U

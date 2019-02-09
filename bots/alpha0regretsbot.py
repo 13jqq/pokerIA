@@ -1,11 +1,11 @@
 from pypokerengine.players import BasePokerPlayer
 from pypokerengine.api.emulator import Emulator
+from pypokerengine.utils.card_utils import gen_cards
 from gamestate import GameState
 from model import build_model
 import config
 import random
 import argparse
-import math
 import mccfr as mc
 import numpy as np
 
@@ -18,14 +18,32 @@ weight = None
 
 class Alpha0Regret(BasePokerPlayer):
 
-    def __init__(self, cpuct, mccfr_simulations, model):
+    def __init__(self, cpuct, mccfr_simulations, model,exp=0):
         super(Alpha0Regret, self).__init__()
         self.cpuct = cpuct
         self.MCCFR_simulations = mccfr_simulations
         self.model = model
         self.mccfr = None
+        self.intial_round_stack = 0
+        self.total_round_money = 0
+        self.exp = exp
 
     # Setup Emulator object by registering game information
+    def declare_action(self, valid_actions, hole_card, round_state):
+        state=GameState(self.uuid, round_state, gen_cards(hole_card))
+        if self.mccfr == None or state.id not in self.mccfr.tree:
+            self.buildMCCFR(state)
+        else:
+            self.changeRootMCCFR(state)
+        for sim in range(self.MCCFR_simulations):
+            self.simulate()
+
+        pi, values = self.getAV()
+
+        action = self.chooseAction(pi)
+
+        return list(state.get_action_list()[action])
+
     def receive_game_start_message(self, game_info):
         player_num = game_info["player_num"]
         max_round = game_info["rule"]["max_round"]
@@ -37,12 +55,18 @@ class Alpha0Regret(BasePokerPlayer):
         self.emulator.set_game_rule(player_num, max_round, small_blind_amount, ante_amount)
         self.emulator.set_blind_structure(blind_structure)
 
-    def declare_action(self, valid_actions, hole_card, round_state):
-        state=GameState(self.uuid, round_state, hole_card)
-        if self.mccfr == None or state.id not in self.mccfr.tree:
-            self.buildMCCFR(state)
-        else:
-            self.changeRootMCCFR(state)
+    def receive_round_start_message(self, round_count, hole_card, seats):
+        self.intial_round_stack = [player['stack'] for player in seats if player['uuid']== self.uuid][0]
+        self.total_round_money = sum([player['stack'] for player in seats])
+
+    def receive_street_start_message(self, street, round_state):
+        pass
+
+    def receive_game_update_message(self, action, round_state):
+        pass
+
+    def receive_round_result_message(self, winners, hand_info, round_state):
+        ([player['stack'] for player in round_state['seats'] if player['uuid'] == self.uuid][0] - self.intial_round_stack)/self.total_round_money
 
     def buildMCCFR(self, state):
         self.root = mc.Node(state)
@@ -63,6 +87,7 @@ class Alpha0Regret(BasePokerPlayer):
 
             value, probs, allowedActions = self.get_preds(leaf.state)
             leaf.value = value
+            value={leaf.state.playerTurn: value}
             probs = probs[allowedActions]
 
             for idx, action in enumerate(allowedActions):
@@ -79,9 +104,10 @@ class Alpha0Regret(BasePokerPlayer):
 
     def get_preds(self, state):
         # predict the leaf
+
         main_input, my_history, adv_history = state.convertStateToModelInput()
 
-        preds = self.model.predict([main_input, my_history, *adv_history])
+        preds = self.model.predict(main_input, my_history, *adv_history)
         value_array = preds[0]
         logits_array = preds[1]
         value = value_array[0]
@@ -92,11 +118,8 @@ class Alpha0Regret(BasePokerPlayer):
 
         mask = np.ones(logits.shape, dtype=bool)
         mask[allowedActions] = False
-        logits[mask] = - math.inf
-
-        # SOFTMAX
-        odds = np.exp(logits)
-        probs = odds / np.sum(odds)
+        logits[mask] = 0
+        probs = logits / np.sum(logits)
 
         return ((value, probs, allowedActions))
 
@@ -110,20 +133,15 @@ class Alpha0Regret(BasePokerPlayer):
         pi = pi / (np.sum(pi))
         return pi
 
-    def chooseAction(self, pi, values, exp=0):
-        if exp == 0:
+    def chooseAction(self, pi):
+        if self.exp == 0:
             actions = np.argwhere(pi == max(pi))
             action = random.choice(actions)[0]
         else:
             action_idx = np.random.multinomial(1, pi)
             action = np.where(action_idx == 1)[0][0]
 
-        value = values[action]
-
-        return action, value
-
-    def build_allowed_action(self, allowed_action):
-        pass
+        return action
 
 def parse_args():
     parser = argparse.ArgumentParser()

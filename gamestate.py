@@ -1,4 +1,5 @@
 from operator import itemgetter
+from utilities import build_action_list, compare_action
 import itertools
 import numpy as np
 import config
@@ -31,7 +32,7 @@ class GameState():
         self.total_money = sum([player.stack + player.paid_sum() for player in self.state['table'].seats.players])
         self.allowed_action = None
         if self.state['next_player'] is not None:
-            self.allowed_action = ActionChecker().legal_actions(self.state['table'].seats.players,self.state['next_player'],self.state['small_blind_amount'])
+            self.allowed_action = self._get_allowed_action()
         self.id = self._convertStateToId()
 
     def _convertStateToId(self):
@@ -52,8 +53,15 @@ class GameState():
 
         return id
 
+    def _get_allowed_action(self):
+        allowed_action_list=ActionChecker().legal_actions(self.state['table'].seats.players, self.state['next_player'],
+                                      self.state['small_blind_amount'])
+        action_list=build_action_list(self.state['table'].seats.players[self.state['next_player']].stack, self.state['table'].seats.players)
+        res=[i for i,action in enumerate(action_list) for allowed_action in allowed_action_list if compare_action(action,allowed_action)]
+        return list(set(res))
+
     def convertStateToModelInput(self):
-        player=[player for player in self.state['table'].seats.players if player.uuid==self.playerTurn]
+        player=[player for player in self.state['table'].seats.players if player.uuid == self.playerTurn]
         if len(player)==1:
             hole_card=player[0].hole_card
         else:
@@ -66,9 +74,9 @@ class GameState():
         adv_info=sorted([[player.uuid, player.stack / self.total_money, int(player.is_active()), player.paid_sum() / self.total_money] for player in self.state['table'].seats.players if player.uuid != self.my_uuid], key=itemgetter(1))
         adv_order_list=[x[0] for x in adv_info]
         adv_info=[x[1:] for x in adv_info]
-        main_input=np.array(cards+list(itertools.chain.from_iterable(my_info+adv_info)))
-        my_history=np.array(action_history[self.my_uuid])
-        adv_history=[np.array(action_history[key]) for key in adv_order_list if key!=self.my_uuid]
+        main_input=np.asarray(cards+list(itertools.chain.from_iterable(my_info+adv_info)))
+        my_history=np.asarray(action_history[self.my_uuid])
+        adv_history=[np.asarray(action_history[key]) for key in adv_order_list if key!=self.my_uuid]
 
         return main_input, my_history, adv_history
 
@@ -80,9 +88,11 @@ class GameState():
             else:
                 game_state = attach_hole_card_from_deck(game_state, player.uuid)
         return game_state
+    def get_action_list(self):
+        return build_action_list(self.state['table'].seats.players[self.state['next_player']].stack, self.state['table'].seats.players)
 
     def takeAction(self, action, emulator):
-
+        action = build_action_list(self.state['table'].seats.players[self.state['next_player']].stack, self.state['table'].seats.players)[action]
         game_state, events = emulator.apply_action(self.state, action['action'], action['amount'])
         value = {}
         done = 0
@@ -95,5 +105,3 @@ class GameState():
             done = 1
 
         return (newState, value, done)
-
-

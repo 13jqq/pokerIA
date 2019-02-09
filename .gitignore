@@ -1,4 +1,5 @@
 .idea/*
-pokergui/*
+pypokergui/round_state.html
+pypokergui/poker_conf.yaml
 __pycache__/*
 bots/__pycache__/*
