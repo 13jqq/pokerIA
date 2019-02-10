@@ -22,10 +22,11 @@ def parse_action(action,divider=1):
 
 
 class GameState():
-    def __init__(self, my_uuid, round_state, my_hole_card):
+    def __init__(self, my_uuid, round_state, my_hole_card, emulator):
         self.my_uuid=my_uuid
         self.my_hole_card = my_hole_card
         self.state = self._setup_game_state(round_state)
+        self.emulator = emulator
         self.playerTurn = None
         if self.state['next_player'] is not None:
             self.playerTurn = self.state['table'].seats.players[self.state['next_player']].uuid
@@ -74,9 +75,9 @@ class GameState():
         adv_info=sorted([[player.uuid, player.stack / self.total_money, int(player.is_active()), player.paid_sum() / self.total_money] for player in self.state['table'].seats.players if player.uuid != self.my_uuid], key=itemgetter(1))
         adv_order_list=[x[0] for x in adv_info]
         adv_info=[x[1:] for x in adv_info]
-        main_input=np.asarray(cards+list(itertools.chain.from_iterable(my_info+adv_info)))
-        my_history=np.asarray(action_history[self.my_uuid])
-        adv_history=[np.asarray(action_history[key]) for key in adv_order_list if key!=self.my_uuid]
+        main_input=np.expand_dims(np.asarray(cards+list(itertools.chain.from_iterable(my_info+adv_info))), axis=0)
+        my_history=np.expand_dims(np.asarray(action_history[self.my_uuid]), axis=0)
+        adv_history=[np.expand_dims(np.asarray(action_history[key]), axis=0) for key in adv_order_list if key!=self.my_uuid]
 
         return main_input, my_history, adv_history
 
@@ -88,17 +89,18 @@ class GameState():
             else:
                 game_state = attach_hole_card_from_deck(game_state, player.uuid)
         return game_state
+
     def get_action_list(self):
         return build_action_list(self.state['table'].seats.players[self.state['next_player']].stack, self.state['table'].seats.players)
 
-    def takeAction(self, action, emulator):
+    def takeAction(self, action):
         action = build_action_list(self.state['table'].seats.players[self.state['next_player']].stack, self.state['table'].seats.players)[action]
-        game_state, events = emulator.apply_action(self.state, action['action'], action['amount'])
+        game_state, events = self.emulator.apply_action(self.state, action['action'], action['amount'])
         value = {}
         done = 0
-        newState = GameState(self.my_uuid, events[-1]['round_state'], self.my_hole_card)
+        newState = GameState(self.my_uuid, events[-1]['round_state'], self.my_hole_card, self.emulator)
         if events[-1]['type']=="event_round_finish":
-            ante = emulator.game_rule["ante"]
+            ante = self.emulator.game_rule["ante"]
             value = {player2.uuid: (player2.stack - player.stack - player.paid_sum() - ante)/self.total_money for player2 in
                      newState.state['table'].seats.players for player in
                      self.state['table'].seats.players if player.uuid == player2.uuid}

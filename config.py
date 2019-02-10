@@ -7,7 +7,9 @@ game_param={
 mccfr={
     'EPISODES': 30,
     'MCCFR_SIMS': 50,
-    'MEMORY_SIZE': 30000
+    'MEMORY_SIZE': 30000,
+    'EPSILON': 0.2,
+    'ALPHA': 0.8
 }
 
 training_param={

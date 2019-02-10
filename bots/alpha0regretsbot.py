@@ -30,7 +30,7 @@ class Alpha0Regret(BasePokerPlayer):
 
     # Setup Emulator object by registering game information
     def declare_action(self, valid_actions, hole_card, round_state):
-        state=GameState(self.uuid, round_state, gen_cards(hole_card))
+        state=GameState(self.uuid, round_state, gen_cards(hole_card), self.emulator)
         if self.mccfr == None or state.id not in self.mccfr.tree:
             self.buildMCCFR(state)
         else:
@@ -106,8 +106,8 @@ class Alpha0Regret(BasePokerPlayer):
         # predict the leaf
 
         main_input, my_history, adv_history = state.convertStateToModelInput()
-
-        preds = self.model.predict(main_input, my_history, *adv_history)
+        print(main_input.shape, my_history.shape, adv_history[0].shape)
+        preds = self.model.predict([main_input, my_history, *adv_history])
         value_array = preds[0]
         logits_array = preds[1]
         value = value_array[0]

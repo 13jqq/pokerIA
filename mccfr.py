@@ -54,11 +54,11 @@ class MCCFR():
         while not currentNode.isLeaf():
             value.update({currentNode.playerTurn: currentNode.value})
             maxRU = - math.inf
-            totalAbsRegret=sum([abs(edge.stats['R']) for edge in currentNode.edges])
+            totalAbsRegret=sum([abs(edge.stats['R']) for action, edge in currentNode.edges])
 
             if currentNode == self.root:
-                epsilon = config.EPSILON
-                nu = np.random.dirichlet([config.ALPHA] * len(currentNode.edges))
+                epsilon = config.mccfr['EPSILON']
+                nu = np.random.dirichlet([config.mccfr['ALPHA']] * len(currentNode.edges))
             else:
                 epsilon = 0
                 nu = [0] * len(currentNode.edges)
@@ -93,7 +93,7 @@ class MCCFR():
         for node,selEdge in breadcrumbs:
             node.value = value[node.playerTurn]
 
-            for edge in node.edges:
+            for action, edge in node.edges:
                 if selEdge.id == edge.id:
                     edge.stats['N'] = edge.stats['N'] + 1
                     edge.stats['R'] = edge.stats['R'] + value[node.playerTurn] * (1-edge.stats['P'])
