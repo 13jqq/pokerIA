@@ -3,6 +3,7 @@ from pypokerengine.api.emulator import Emulator
 from pypokerengine.utils.card_utils import gen_cards
 from gamestate import GameState
 from model import build_model
+from utilities import stable_softmax
 import config
 import random
 import argparse
@@ -36,13 +37,14 @@ class Alpha0Regret(BasePokerPlayer):
         else:
             self.changeRootMCCFR(state)
         for sim in range(self.MCCFR_simulations):
+            print(sim)
             self.simulate()
 
-        pi, values = self.getAV()
+        pi = self.getAV()
 
         action = self.chooseAction(pi)
 
-        return list(state.get_action_list()[action])
+        return list(state.get_action_list()[action].values())
 
     def receive_game_start_message(self, game_info):
         player_num = game_info["player_num"]
@@ -56,7 +58,7 @@ class Alpha0Regret(BasePokerPlayer):
         self.emulator.set_blind_structure(blind_structure)
 
     def receive_round_start_message(self, round_count, hole_card, seats):
-        self.intial_round_stack = [player['stack'] for player in seats if player['uuid']== self.uuid][0]
+        self.intial_round_stack = [player['stack'] for player in seats if player['uuid'] == self.uuid][0]
         self.total_round_money = sum([player['stack'] for player in seats])
 
     def receive_street_start_message(self, street, round_state):
@@ -82,7 +84,6 @@ class Alpha0Regret(BasePokerPlayer):
         self.mccfr.backFill(value, breadcrumbs)
 
     def evaluateLeaf(self, leaf, value, done, breadcrumbs):
-
         if done == 0:
 
             value, probs, allowedActions = self.get_preds(leaf.state)
@@ -106,11 +107,10 @@ class Alpha0Regret(BasePokerPlayer):
         # predict the leaf
 
         main_input, my_history, adv_history = state.convertStateToModelInput()
-        print(main_input.shape, my_history.shape, adv_history[0].shape)
         preds = self.model.predict([main_input, my_history, *adv_history])
         value_array = preds[0]
         logits_array = preds[1]
-        value = value_array[0]
+        value = value_array[0][0]
 
         logits = logits_array[0]
 
@@ -118,22 +118,23 @@ class Alpha0Regret(BasePokerPlayer):
 
         mask = np.ones(logits.shape, dtype=bool)
         mask[allowedActions] = False
-        logits[mask] = 0
-        probs = logits / np.sum(logits)
+        logits[mask] = -100
+
+        probs = stable_softmax(logits)
 
         return ((value, probs, allowedActions))
 
     def getAV(self):
         edges = self.mccfr.root.edges
-        pi = np.zeros(config.game_param['RAISE_PARTITION_NUM']+2, dtype=np.integer)
+        pi = np.zeros(config.game_param['RAISE_PARTITION_NUM']+2, dtype=np.float32)
 
         for action, edge in edges:
             pi[action] = max(0, edge.stats['R'])
-
         pi = pi / (np.sum(pi))
         return pi
 
     def chooseAction(self, pi):
+        print(np.sum(pi))
         if self.exp == 0:
             actions = np.argwhere(pi == max(pi))
             action = random.choice(actions)[0]

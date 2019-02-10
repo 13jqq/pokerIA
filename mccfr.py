@@ -1,13 +1,12 @@
 import numpy as np
 import config
-import math
 
 class Node():
 
     def __init__(self, state):
         self.state = state
         self.playerTurn = state.playerTurn
-        self.value=0
+        self.value = 0
         self.id = state.id
         self.edges = []
 
@@ -53,8 +52,7 @@ class MCCFR():
 
         while not currentNode.isLeaf():
             value.update({currentNode.playerTurn: currentNode.value})
-            maxRU = - math.inf
-            totalAbsRegret=sum([abs(edge.stats['R']) for action, edge in currentNode.edges])
+            maxRU = float('-inf')
 
             if currentNode == self.root:
                 epsilon = config.mccfr['EPSILON']
@@ -73,7 +71,7 @@ class MCCFR():
                     ((1 - epsilon) * edge.stats['P'] + epsilon * nu[idx]) * \
                     np.sqrt(Nb) / (1 + edge.stats['N'])
 
-                R = edge.stats['R']/totalAbsRegret
+                R = edge.stats['R']
 
                 if R + U > maxRU:
                     maxRU = R + U
