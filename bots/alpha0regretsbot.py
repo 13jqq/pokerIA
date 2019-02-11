@@ -3,7 +3,7 @@ from pypokerengine.api.emulator import Emulator
 from pypokerengine.utils.card_utils import gen_cards
 from gamestate import GameState
 from model import build_model
-from utilities import stable_softmax
+from utilities import stable_softmax, truncate_float, parse_action, merge_pkmn_dicts_same_key
 import config
 import random
 import argparse
@@ -13,7 +13,7 @@ import numpy as np
 #default bot parameters
 num_player = 2
 cpuct = 1
-nb_mccfr_sim = 50
+nb_mccfr_sim = config.mccfr['MCCFR_SIMS']
 weight = None
 
 
@@ -31,13 +31,25 @@ class Alpha0Regret(BasePokerPlayer):
 
     # Setup Emulator object by registering game information
     def declare_action(self, valid_actions, hole_card, round_state):
+        if self.total_round_money is None:
+            pay_history = merge_pkmn_dicts_same_key(
+                [{x['uuid']: parse_action(x, 1)[6]} for k in round_state['action_histories'].keys() for x
+                 in round_state['action_histories'][k]])
+            self.total_round_money = sum([player['stack'] + sum(pay_history[player['uuid']]) for player in round_state['seats']])
+
+        if self.intial_round_stack is None:
+            pay_history = merge_pkmn_dicts_same_key(
+                [{x['uuid']: parse_action(x, 1)[6]} for k in round_state['action_histories'].keys() for x
+                 in round_state['action_histories'][k]])
+            self.intial_round_stack = sum(
+                [player['stack'] + sum(pay_history[player['uuid']]) for player in round_state['seats'] if player['uuid'] == self.uuid])
+
         state=GameState(self.uuid, round_state, gen_cards(hole_card), self.emulator)
         if self.mccfr == None or state.id not in self.mccfr.tree:
             self.buildMCCFR(state)
         else:
             self.changeRootMCCFR(state)
         for sim in range(self.MCCFR_simulations):
-            print(sim)
             self.simulate()
 
         pi = self.getAV()
@@ -58,8 +70,8 @@ class Alpha0Regret(BasePokerPlayer):
         self.emulator.set_blind_structure(blind_structure)
 
     def receive_round_start_message(self, round_count, hole_card, seats):
-        self.intial_round_stack = [player['stack'] for player in seats if player['uuid'] == self.uuid][0]
-        self.total_round_money = sum([player['stack'] for player in seats])
+        self.intial_round_stack = None
+        self.total_round_money = None
 
     def receive_street_start_message(self, street, round_state):
         pass
@@ -68,7 +80,8 @@ class Alpha0Regret(BasePokerPlayer):
         pass
 
     def receive_round_result_message(self, winners, hand_info, round_state):
-        ([player['stack'] for player in round_state['seats'] if player['uuid'] == self.uuid][0] - self.intial_round_stack)/self.total_round_money
+        value = ([player['stack'] for player in round_state['seats'] if player['uuid'] == self.uuid][0] - self.intial_round_stack)/self.total_round_money
+
 
     def buildMCCFR(self, state):
         self.root = mc.Node(state)
@@ -79,16 +92,13 @@ class Alpha0Regret(BasePokerPlayer):
 
     def simulate(self):
         leaf, value, done, breadcrumbs = self.mccfr.moveToLeaf()
-        lvalue, breadcrumbs = self.evaluateLeaf(leaf, value, done, breadcrumbs)
-        value.update(lvalue)
+        value, breadcrumbs = self.evaluateLeaf(leaf, value, done, breadcrumbs)
         self.mccfr.backFill(value, breadcrumbs)
 
     def evaluateLeaf(self, leaf, value, done, breadcrumbs):
         if done == 0:
 
             value, probs, allowedActions = self.get_preds(leaf.state)
-            leaf.value = value
-            value={leaf.state.playerTurn: value}
             probs = probs[allowedActions]
 
             for idx, action in enumerate(allowedActions):
@@ -110,7 +120,12 @@ class Alpha0Regret(BasePokerPlayer):
         preds = self.model.predict([main_input, my_history, *adv_history])
         value_array = preds[0]
         logits_array = preds[1]
-        value = value_array[0][0]
+        if config.game_param['MAX_PLAYER'] < 3:
+            value = {x.uuid:(-1)**(idx)*value_array[0][0] for idx,x in enumerate(state.state['table'].seats.players)}
+        else:
+            value_sum_zero_array = np.asarray([value_array[0][idx] for idx, x in enumerate(state['table'].seats.players)])
+            value_sum_zero_array = value_sum_zero_array - (sum(value_sum_zero_array)/len(value_sum_zero_array))
+            value = {x.uuid: value_sum_zero_array[idx] for idx, x in enumerate(state['table'].seats.players)}
 
         logits = logits_array[0]
 
@@ -118,7 +133,7 @@ class Alpha0Regret(BasePokerPlayer):
 
         mask = np.ones(logits.shape, dtype=bool)
         mask[allowedActions] = False
-        logits[mask] = -100
+        logits[mask] = float('-inf')
 
         probs = stable_softmax(logits)
 
@@ -134,7 +149,7 @@ class Alpha0Regret(BasePokerPlayer):
         return pi
 
     def chooseAction(self, pi):
-        print(np.sum(pi))
+        pi=np.asarray([truncate_float(x,7) for x in pi])
         if self.exp == 0:
             actions = np.argwhere(pi == max(pi))
             action = random.choice(actions)[0]

@@ -1,6 +1,6 @@
 import config
 from keras.models import Model
-from keras.layers import Input, Dense, BatchNormalization, LeakyReLU, Concatenate, average, LSTM, Masking
+from keras.layers import Input, Dense, BatchNormalization, LeakyReLU, Concatenate, average, LSTM, Masking, Softmax
 from keras.optimizers import SGD
 from keras import regularizers
 
@@ -16,6 +16,9 @@ sharedLSTM=LSTM(100,
            recurrent_regularizer=None,
            name='preprocess_action')
 
+pred_value_unit=config.game_param['MAX_PLAYER']
+if pred_value_unit < 3:
+    pred_value_unit = 1
 
 def actions_preprocessing(x):
     x=Masking(mask_value=0.0)(x)
@@ -48,7 +51,7 @@ def value_head(x):
     x = BatchNormalization()(x)
 
     x = Dense(
-        1,
+        pred_value_unit,
         use_bias=False,
         activation='tanh',
         kernel_initializer='glorot_normal',
@@ -71,7 +74,7 @@ def policy_head(x):
     x = Dense(
         config.game_param['RAISE_PARTITION_NUM']+2,
         use_bias=False,
-        activation='sigmoid',
+        activation='softmax',
         kernel_initializer='glorot_normal',
         kernel_regularizer=regularizers.l2(config.training_param['REG_CONST']),
         name='policy_head'
@@ -79,7 +82,7 @@ def policy_head(x):
     return (x)
 
 def build_model(num_player):
-    main_input = Input(shape=(14+(config.game_param['MAX_PLAYER']*3),), name = 'main_input')
+    main_input = Input(shape=(16+(config.game_param['MAX_PLAYER']*3),), name = 'main_input')
     my_history = Input(shape=(None,7), name='my_history')
     adv_history=[Input(shape=(None,7), name='adv_history_player' + str(i+1)) for i in range(num_player-1)]
 

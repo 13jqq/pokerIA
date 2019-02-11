@@ -2,7 +2,6 @@ from operator import itemgetter
 from utilities import build_action_list, compare_action, parse_action, merge_pkmn_dicts_same_key
 import itertools
 import numpy as np
-import config
 from pypokerengine.utils.game_state_utils import\
         restore_game_state, attach_hole_card, attach_hole_card_from_deck
 from pypokerengine.engine.action_checker import ActionChecker
@@ -20,29 +19,38 @@ class GameState():
         self.playerTurn = None
         if self.state['next_player'] is not None and isinstance(self.state['next_player'],int):
             self.playerTurn = self.state['table'].seats.players[self.state['next_player']].uuid
-        self.total_money = sum([player.stack + player.paid_sum() for player in self.state['table'].seats.players])
+        self.total_money = self._get_total_money()
         self.allowed_action = None
         if self.state['next_player'] is not None and isinstance(self.state['next_player'],int):
             self.allowed_action = self._get_allowed_action()
         self.id = self._convertStateToId()
 
+    def _get_total_money(self):
+        pay_history = merge_pkmn_dicts_same_key(
+            [{x['uuid']: parse_action(x, 1)[6]} for k in self.round_state['action_histories'].keys() for x
+             in self.round_state['action_histories'][k]])
+        return sum([player['stack'] + sum(pay_history[player['uuid']]) for player in self.round_state['seats']])
+
     def _convertStateToId(self):
         hole_card = [card.__str__() for card in self.my_hole_card]
         community_card = [card.__str__() for card in self.state['table'].get_community_card()]
+        try:
+            blind_pos=[self.state['table'].sb_pos(),self.state['table'].bb_pos()]
+        except Exception("blind position is not yet set"):
+            blind_pos=[-1,-1]
         action_history = merge_pkmn_dicts_same_key(
             [{x['uuid']: [parse_action(x, self.total_money)]} for k in self.round_state['action_histories'].keys() for x
              in self.round_state['action_histories'][k]])
-        my_info = list(itertools.chain.from_iterable([[player.stack / self.total_money, int(player.is_active()), player.paid_sum() / self.total_money] for
-                   player in self.state['table'].seats.players if player.uuid == self.my_uuid]))
-        adv_info = sorted([[player.uuid, player.stack / self.total_money, int(player.is_active()),
-                            player.paid_sum() / self.total_money] for player in self.state['table'].seats.players if
+        my_info = list(itertools.chain.from_iterable([[idx, player.stack / self.total_money, int(player.is_active())] for
+                   idx, player in enumerate(self.state['table'].seats.players) if player.uuid == self.my_uuid]))
+        adv_info = sorted([[player.uuid, idx, player.stack / self.total_money, int(player.is_active())] for idx,player in enumerate(self.state['table'].seats.players) if
                            player.uuid != self.my_uuid], key=itemgetter(1))
         adv_order_list = [x[0] for x in adv_info]
         adv_info = list(itertools.chain.from_iterable([x[1:] for x in adv_info]))
         adv_history = list(itertools.chain.from_iterable([list(itertools.chain.from_iterable(action_history[key])) for key in adv_order_list if key != self.my_uuid]))
         my_history = list(itertools.chain.from_iterable(action_history[self.my_uuid]))
 
-        stateId = hole_card + community_card + my_info + adv_info + my_history + adv_history
+        stateId = hole_card + community_card + blind_pos + my_info + adv_info + my_history + adv_history
         id = ''.join(map(str, stateId))
 
         return id
@@ -63,16 +71,20 @@ class GameState():
         hole_card = list(itertools.chain.from_iterable([[(card.suit-np.mean([2,4,8,16]))/np.std([2,4,8,16]),(card.rank-np.mean([2,3,4,5,6,7,8,9,10,11,12,13,14]))/np.std([2,3,4,5,6,7,8,9,10,11,12,13,14])] for card in hole_card]))
         community_card = list(itertools.chain.from_iterable([[(card.suit-np.mean([2,4,8,16]))/np.std([2,4,8,16]),(card.rank-np.mean([2,3,4,5,6,7,8,9,10,11,12,13,14]))/np.std([2,3,4,5,6,7,8,9,10,11,12,13,14])] for card in self.state['table'].get_community_card()]))
         cards = hole_card + community_card + ([0]*(14-len(hole_card) - len(community_card)))
+        try:
+            blind_pos=[self.state['table'].sb_pos(),self.state['table'].bb_pos()]
+        except Exception("blind position is not yet set"):
+            blind_pos=[-1,-1]
         action_history = merge_pkmn_dicts_same_key(
             [{x['uuid']: [parse_action(x, self.total_money)]} for k in self.round_state['action_histories'].keys() for x
              in self.round_state['action_histories'][k]])
-        my_info=[[player.stack / self.total_money, int(player.is_active()), player.paid_sum() / self.total_money] for player in self.state['table'].seats.players if player.uuid == self.my_uuid]
-        adv_info=sorted([[player.uuid, player.stack / self.total_money, int(player.is_active()), player.paid_sum() / self.total_money] for player in self.state['table'].seats.players if player.uuid != self.my_uuid], key=itemgetter(1))
+        my_info=[[idx,player.stack / self.total_money, int(player.is_active())] for idx,player in enumerate(self.state['table'].seats.players) if player.uuid == self.my_uuid]
+        adv_info=sorted([[player.uuid, idx, player.stack / self.total_money, int(player.is_active())] for idx, player in enumerate(self.state['table'].seats.players) if player.uuid != self.my_uuid], key=itemgetter(1))
         adv_order_list=[x[0] for x in adv_info]
         adv_info=[x[1:] for x in adv_info]
-        main_input=np.expand_dims(np.asarray(cards+list(itertools.chain.from_iterable(my_info+adv_info))), axis=0)
-        my_history=np.asarray(action_history[self.my_uuid])
-        adv_history=[np.asarray(action_history[key]) for key in adv_order_list if key!=self.my_uuid]
+        main_input=np.expand_dims(np.asarray(cards+blind_pos+list(itertools.chain.from_iterable(my_info+adv_info))), axis=0)
+        my_history=np.expand_dims(np.asarray(action_history[self.my_uuid]).reshape(-1,7), axis=0)
+        adv_history=[np.expand_dims(np.asarray(action_history[key]).reshape(-1,7), axis=0) for key in adv_order_list if key!=self.my_uuid]
         return main_input, my_history, adv_history
 
     def _setup_game_state(self, round_state):
@@ -92,13 +104,18 @@ class GameState():
         game_state, events = self.emulator.apply_action(self.state, action['action'], action['amount'])
         value = {}
         done = 0
-        print(events[-1])
+        if events[-1]['type'] == "event_game_finish":
+            events.pop(-1)
         newState = GameState(self.my_uuid, events[-1]['round_state'], self.my_hole_card, self.emulator)
-        if events[-1]['type'] == "event_round_finish" or events[-1]['type'] == "event_game_finish":
+        if events[-1]['type'] == "event_round_finish":
             ante = self.emulator.game_rule["ante"]
-            value = {player2.uuid: (player2.stack - player.stack - player.paid_sum() - ante)/self.total_money for player2 in
+            pay_history = merge_pkmn_dicts_same_key(
+                [{x['uuid']: parse_action(x, 1)[6]} for k in self.round_state['action_histories'].keys() for x
+                 in self.round_state['action_histories'][k]])
+            value = {player2.uuid: (player2.stack - player.stack - sum(pay_history[player.uuid]))/self.total_money for player2 in
                      newState.state['table'].seats.players for player in
                      self.state['table'].seats.players if player.uuid == player2.uuid}
+
             done = 1
 
         return (newState, value, done)

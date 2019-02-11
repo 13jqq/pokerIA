@@ -6,7 +6,6 @@ class Node():
     def __init__(self, state):
         self.state = state
         self.playerTurn = state.playerTurn
-        self.value = 0
         self.id = state.id
         self.edges = []
 
@@ -51,7 +50,6 @@ class MCCFR():
         value = {}
 
         while not currentNode.isLeaf():
-            value.update({currentNode.playerTurn: currentNode.value})
             maxRU = float('-inf')
 
             if currentNode == self.root:
@@ -78,25 +76,26 @@ class MCCFR():
                     simulationAction = action
                     simulationEdge = edge
 
-            newState, lvalue, done = currentNode.state.takeAction(
+            newState, value, done = currentNode.state.takeAction(
                 simulationAction)  # the value of the newState from the POV of the new playerTurn
             breadcrumbs.append((currentNode,simulationEdge))
             currentNode = simulationEdge.outNode
-            value.update(lvalue)
 
         return currentNode, value, done, breadcrumbs
 
     def backFill(self, value, breadcrumbs):
 
-        for node,selEdge in breadcrumbs:
-            node.value = value[node.playerTurn]
+        for idx, (node,selEdge) in enumerate(breadcrumbs):
+            probterm = np.prod(
+                [e[1].stats['P'] for e in breadcrumbs[idx:] if e[0].playerTurn == node.playerTurn]) * np.prod(
+                [e[1].stats['P'] for e in breadcrumbs if e[0].playerTurn != node.playerTurn])
 
             for action, edge in node.edges:
                 if selEdge.id == edge.id:
                     edge.stats['N'] = edge.stats['N'] + 1
-                    edge.stats['R'] = edge.stats['R'] + value[node.playerTurn] * (1-edge.stats['P'])
+                    edge.stats['R'] = edge.stats['R'] + value[node.playerTurn] * probterm * (1-edge.stats['P'])
                 else:
-                    edge.stats['R'] = edge.stats['R'] + (-value[node.playerTurn] * edge.stats['P'])
+                    edge.stats['R'] = edge.stats['R'] + (-value[node.playerTurn] * probterm * edge.stats['P'])
 
     def addNode(self, node):
         self.tree[node.id] = node

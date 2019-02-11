@@ -47,3 +47,6 @@ def merge_pkmn_dicts_same_key(ds):
     res = {}
     [res.update({k: [d[k] for d in ds if k in d.keys()]}) for k in keys]
     return res
+
+def truncate_float(num: float, n: int = 2) -> float:
+    return int(num*10**n)/10**n
