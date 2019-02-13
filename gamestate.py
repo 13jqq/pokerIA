@@ -107,14 +107,12 @@ class GameState():
             events.pop(-1)
         newState = GameState(self.my_uuid, events[-1]['round_state'], self.my_hole_card, self.emulator)
         if events[-1]['type'] == "event_round_finish":
-            ante = self.emulator.game_rule["ante"]
             pay_history = merge_pkmn_dicts_same_key(
                 [{x['uuid']: parse_action(x, 1)[6]} for k in self.round_state['action_histories'].keys() for x
                  in self.round_state['action_histories'][k]])
             value = {player2.uuid: (player2.stack - player.stack - sum(pay_history[player.uuid]))/self.total_money for player2 in
                      newState.state['table'].seats.players for player in
                      self.state['table'].seats.players if player.uuid == player2.uuid}
-
             done = 1
 
         return (newState, value, done)
