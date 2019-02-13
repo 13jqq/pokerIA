@@ -6,13 +6,14 @@ game_param={
 
 mccfr={
     'EPISODES': 30,
-    'MCCFR_SIMS': 50,
-    'MEMORY_SIZE': 30000,
+    'MCCFR_SIMS': 100,
     'EPSILON': 0.2,
     'ALPHA': 0.8
 }
 
 training_param={
+    'LOG_DIR':'D:/projetsIA/pokerIA/training_weights',
+    'MEMORY_SIZE': 30000,
     'BATCH_SIZE': 256,
     'EPOCHS': 1,
     'REG_CONST': 0.0001,
@@ -22,6 +23,7 @@ training_param={
 }
 
 valuation_param={
+    'LAST_MODEL_DIR': 'D:/projetsIA/pokerIA/final_weights',
     'EVAL_EPISODES': 20,
     'SCORING_THRESHOLD': 1.3
 }

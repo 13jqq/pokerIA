@@ -86,16 +86,17 @@ class MCCFR():
     def backFill(self, value, breadcrumbs):
 
         for idx, (node,selEdge) in enumerate(breadcrumbs):
-            probterm = np.prod(
-                [e[1].stats['P'] for e in breadcrumbs[idx:] if e[0].playerTurn == node.playerTurn]) * np.prod(
-                [e[1].stats['P'] for e in breadcrumbs if e[0].playerTurn != node.playerTurn])
+            pisigziaz = np.prod([e[1].stats['P'] for e in breadcrumbs[idx + 1:]])
+            pisigziz = np.prod([e[1].stats['P'] for e in breadcrumbs[idx:]])
+            piadvzi = np.prod([e[1].stats['P'] for e in breadcrumbs[:idx] if e[0].playerTurn != node.playerTurn])
+            pisigprimez = 1  # The sample of terminal history is deterministic
 
             for action, edge in node.edges:
                 if selEdge.id == edge.id:
                     edge.stats['N'] = edge.stats['N'] + 1
-                    edge.stats['R'] = edge.stats['R'] + value[node.playerTurn] * probterm * (1-edge.stats['P'])
+                    edge.stats['R'] = edge.stats['R'] + ((value[node.playerTurn] * piadvzi)/pisigprimez) * (pisigziaz - pisigziz)
                 else:
-                    edge.stats['R'] = edge.stats['R'] + (-value[node.playerTurn] * probterm * edge.stats['P'])
+                    edge.stats['R'] = edge.stats['R'] - ((value[node.playerTurn] * piadvzi)/pisigprimez) * pisigziz
 
     def addNode(self, node):
         self.tree[node.id] = node

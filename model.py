@@ -16,6 +16,15 @@ sharedLSTM=LSTM(100,
            recurrent_regularizer=None,
            name='preprocess_action')
 
+sharedDense = Dense(500,
+                activation='relu',
+                use_bias=True,
+                kernel_initializer='glorot_normal',
+                bias_initializer='zeros',
+                kernel_regularizer=regularizers.l2(config.training_param['REG_CONST']),
+                name='adv_preprocess'
+                )
+
 pred_value_unit=config.game_param['MAX_PLAYER']
 if pred_value_unit < 3:
     pred_value_unit = 1
@@ -23,6 +32,23 @@ if pred_value_unit < 3:
 def actions_preprocessing(x):
     x=Masking(mask_value=0.0)(x)
     x=sharedLSTM(x)
+    return x
+
+def adv_preprocessing(x):
+    x = sharedDense(x)
+    x = BatchNormalization()(x)
+    return x
+
+def my_preprocessing(x):
+    x = Dense(500,
+              activation='relu',
+              use_bias=True,
+              kernel_initializer='glorot_normal',
+              bias_initializer='zeros',
+              kernel_regularizer=regularizers.l2(config.training_param['REG_CONST']),
+              name='my_preprocess'
+              )(x)
+    x = BatchNormalization()(x)
     return x
 
 def model_hidden(x):
@@ -82,27 +108,35 @@ def policy_head(x):
     return (x)
 
 def build_model(num_player):
-    main_input = Input(shape=(16+(config.game_param['MAX_PLAYER']*3),), name = 'main_input')
+    main_input = Input(shape=(16,), name = 'main_input')
+    my_info = Input(shape=(3,), name = 'my_info')
     my_history = Input(shape=(None,7), name='my_history')
+    adv_info = [Input(shape=(3,), name='adv_info_player' + str(i+1)) for i in range(num_player-1)]
     adv_history=[Input(shape=(None,7), name='adv_history_player' + str(i+1)) for i in range(num_player-1)]
 
     x1 = actions_preprocessing(my_history)
+    x1 = Concatenate(axis=-1)([main_input,my_info,x1])
+    x1 = my_preprocessing(x1)
+
     x2=[]
-    for h in adv_history:
-        x2.append(actions_preprocessing(h))
+    for idx,h in enumerate(adv_history):
+        res = actions_preprocessing(h)
+        res = Concatenate(axis=-1)([main_input,adv_info[idx],res])
+        res = adv_preprocessing(res)
+        x2.append(res)
     if len(x2) > 1:
         x2 = average(x2)
     else:
         x2 = x2[0]
 
-    final_input = Concatenate(axis=-1)([main_input,x1,x2])
+    final_input = Concatenate(axis=-1)([x1,x2])
 
     x = model_hidden(final_input)
 
     vh = value_head(x)
     ph = policy_head(x)
 
-    model = Model(inputs=[main_input,my_history,*adv_history], outputs=[vh, ph])
+    model = Model(inputs=[main_input,my_info,my_history,*adv_info,*adv_history], outputs=[vh, ph])
     model.compile(loss={'value_head': 'mean_squared_error', 'policy_head': 'categorical_crossentropy'},
         optimizer=SGD(lr=config.training_param['LEARNING_RATE'], momentum = config.training_param['MOMENTUM'],
                       decay=config.training_param['DECAY']),

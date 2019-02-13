@@ -3,7 +3,7 @@ from pypokerengine.api.emulator import Emulator
 from pypokerengine.utils.card_utils import gen_cards
 from gamestate import GameState
 from model import build_model
-from utilities import stable_softmax, truncate_float, parse_action, merge_pkmn_dicts_same_key
+from utilities import stable_softmax, truncate_float, parse_action, merge_pkmn_dicts_same_key, treat_neg_regret
 import config
 import random
 import argparse
@@ -19,7 +19,7 @@ weight = None
 
 class Alpha0Regret(BasePokerPlayer):
 
-    def __init__(self, cpuct, mccfr_simulations, model,exp=0):
+    def __init__(self, cpuct, mccfr_simulations, model, exp=0, uuid=None, emulator=None, memory=None):
         super(Alpha0Regret, self).__init__()
         self.cpuct = cpuct
         self.MCCFR_simulations = mccfr_simulations
@@ -27,6 +27,10 @@ class Alpha0Regret(BasePokerPlayer):
         self.mccfr = None
         self.intial_round_stack = 0
         self.total_round_money = 0
+        self.emulator = emulator
+        self.memory = memory
+        if uuid is not None:
+            self.uuid = uuid
         self.exp = exp
 
     # Setup Emulator object by registering game information
@@ -55,6 +59,8 @@ class Alpha0Regret(BasePokerPlayer):
         pi = self.getAV()
 
         action = self.chooseAction(pi)
+        if self.memory is not None:
+            self.memory.commit_stmemory(self.uuid,state.convertStateToModelInput(), pi, np.zeros((config.game_param['MAX_PLAYER'],)))
 
         return list(state.get_action_list()[action].values())
 
@@ -116,8 +122,8 @@ class Alpha0Regret(BasePokerPlayer):
     def get_preds(self, state):
         # predict the leaf
 
-        main_input, my_history, adv_history = state.convertStateToModelInput()
-        preds = self.model.predict([main_input, my_history, *adv_history])
+        main_input, my_info, my_history, adv_info, adv_history = state.convertStateToModelInput()
+        preds = self.model.predict([main_input, my_info, my_history, *adv_info, *adv_history])
         value_array = preds[0]
         logits_array = preds[1]
         if config.game_param['MAX_PLAYER'] < 3:
@@ -142,10 +148,13 @@ class Alpha0Regret(BasePokerPlayer):
     def getAV(self):
         edges = self.mccfr.root.edges
         pi = np.zeros(config.game_param['RAISE_PARTITION_NUM']+2, dtype=np.float32)
-
         for action, edge in edges:
             pi[action] = max(0, edge.stats['R'])
-        pi = pi / (np.sum(pi))
+        if np.sum(pi) == 0:
+            for action, edge in edges:
+                pi[action] = treat_neg_regret(abs(min(0, edge.stats['R'])))
+
+        pi = pi / np.sum(pi)
         return pi
 
     def chooseAction(self, pi):
@@ -161,7 +170,7 @@ class Alpha0Regret(BasePokerPlayer):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--nump', '-np', default=num_player, help='number of player')
+    parser.add_argument('--nump', '-np', default=num_player, help='number of players')
     parser.add_argument('--cpuct', '-cp', default=cpuct, help='cpuct')
     parser.add_argument('--mccfr_simulations', '-mc', default=nb_mccfr_sim, help='Number of montecarlo simulation')
     parser.add_argument('--weight', '-w', default=weight, help='path for weights')

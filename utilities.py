@@ -1,4 +1,5 @@
 from pypokerengine.engine.action_checker import ActionChecker
+from pypokerengine.api.emulator import Emulator
 import config
 import numpy as np
 
@@ -15,7 +16,7 @@ def compare_action(action1,action2):
             if action1['amount'] == action2['amount']:
                 res=True
         elif isinstance(action1['amount'],dict) and isinstance(action2['amount'],int):
-            if action2['amount']>=action1['amount']['min'] and  action2['amount']<=action1['amount']['max']:
+            if action2['amount'] >= action1['amount']['min'] and  action2['amount'] <= action1['amount']['max']:
                 res=True
         elif isinstance(action2['amount'], dict) and isinstance(action1['amount'], int):
             if action1['amount'] >= action2['amount']['min'] and action1['amount'] <= action2['amount']['max']:
@@ -50,3 +51,19 @@ def merge_pkmn_dicts_same_key(ds):
 
 def truncate_float(num: float, n: int = 2) -> float:
     return int(num*10**n)/10**n
+
+def initialize_new_emulator(player_num, max_round, small_blind_amount, ante_amount):
+    emulator = Emulator()
+    emulator.set_game_rule(player_num=player_num, max_round=max_round, small_blind_amount=small_blind_amount, ante_amount=ante_amount)
+    return emulator
+
+def to_list(x):
+    if not isinstance(x,list):
+        x=[x]
+    return x
+
+def treat_neg_regret(x):
+        if x == 0:
+            return 0
+        else:
+            return 1/x

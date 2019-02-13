@@ -1,13 +1,11 @@
 from operator import itemgetter
 from utilities import build_action_list, compare_action, parse_action, merge_pkmn_dicts_same_key
 import itertools
+import config
 import numpy as np
 from pypokerengine.utils.game_state_utils import\
         restore_game_state, attach_hole_card, attach_hole_card_from_deck
 from pypokerengine.engine.action_checker import ActionChecker
-
-
-
 
 class GameState():
     def __init__(self, my_uuid, round_state, my_hole_card, emulator):
@@ -78,14 +76,15 @@ class GameState():
         action_history = merge_pkmn_dicts_same_key(
             [{x['uuid']: [parse_action(x, self.total_money)]} for k in self.round_state['action_histories'].keys() for x
              in self.round_state['action_histories'][k]])
-        my_info=[[idx,player.stack / self.total_money, int(player.is_active())] for idx,player in enumerate(self.state['table'].seats.players) if player.uuid == self.my_uuid]
-        adv_info=sorted([[player.uuid, idx, player.stack / self.total_money, int(player.is_active())] for idx, player in enumerate(self.state['table'].seats.players) if player.uuid != self.my_uuid], key=itemgetter(1))
+        my_info=[[idx, player.stack / self.total_money, int(player.is_active())] for idx,player in enumerate(self.state['table'].seats.players) if player.uuid == self.playerTurn]
+        adv_info=sorted([[player.uuid, idx, player.stack / self.total_money, int(player.is_active())] for idx, player in enumerate(self.state['table'].seats.players) if player.uuid != self.playerTurn], key=itemgetter(1))
         adv_order_list=[x[0] for x in adv_info]
-        adv_info=[x[1:] for x in adv_info]
-        main_input=np.expand_dims(np.asarray(cards+blind_pos+list(itertools.chain.from_iterable(my_info+adv_info))), axis=0)
-        my_history=np.expand_dims(np.asarray(action_history[self.my_uuid]).reshape(-1,7), axis=0)
-        adv_history=[np.expand_dims(np.asarray(action_history[key]).reshape(-1,7), axis=0) for key in adv_order_list if key!=self.my_uuid]
-        return main_input, my_history, adv_history
+        my_info = np.expand_dims(np.asarray(my_info[0]), axis=0)
+        adv_info = [np.expand_dims(np.asarray(x[1:]), axis=0) for x in adv_info]
+        main_input=np.expand_dims(np.asarray(cards+blind_pos), axis=0)
+        my_history=np.expand_dims(np.asarray(action_history[self.playerTurn]).reshape(-1,7), axis=0)
+        adv_history=[np.expand_dims(np.asarray(action_history[key]).reshape(-1,7), axis=0) for key in adv_order_list if key!=self.playerTurn]
+        return main_input, my_info, my_history, adv_info, adv_history
 
     def _setup_game_state(self, round_state):
         game_state = restore_game_state(round_state)
