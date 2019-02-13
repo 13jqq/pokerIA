@@ -81,9 +81,11 @@ class GameState():
         adv_order_list=[x[0] for x in adv_info]
         my_info = np.expand_dims(np.asarray(my_info[0]), axis=0)
         adv_info = [np.expand_dims(np.asarray(x[1:]), axis=0) for x in adv_info]
+        adv_info = adv_info + [np.zeros((1,3))]*(config.game_param['MAX_PLAYER']-1-len(adv_info))
         main_input=np.expand_dims(np.asarray(cards+blind_pos), axis=0)
         my_history=np.expand_dims(np.asarray(action_history[self.playerTurn]).reshape(-1,7), axis=0)
         adv_history=[np.expand_dims(np.asarray(action_history[key]).reshape(-1,7), axis=0) for key in adv_order_list if key!=self.playerTurn]
+        adv_history=adv_history+[np.zeros((1,1,7))]*(config.game_param['MAX_PLAYER']-1-len(adv_history))
         return main_input, my_info, my_history, adv_info, adv_history
 
     def _setup_game_state(self, round_state):

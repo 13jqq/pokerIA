@@ -121,8 +121,8 @@ class Alpha0Regret(BasePokerPlayer):
 
     def get_preds(self, state):
         # predict the leaf
-
         main_input, my_info, my_history, adv_info, adv_history = state.convertStateToModelInput()
+        print(main_input.shape, my_info.shape, my_history.shape, [a.shape for a in adv_info], [a.shape for a in adv_history])
         preds = self.model.predict([main_input, my_info, my_history, *adv_info, *adv_history])
         value_array = preds[0]
         logits_array = preds[1]

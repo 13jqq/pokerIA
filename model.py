@@ -111,8 +111,8 @@ def build_model(num_player):
     main_input = Input(shape=(16,), name = 'main_input')
     my_info = Input(shape=(3,), name = 'my_info')
     my_history = Input(shape=(None,7), name='my_history')
-    adv_info = [Input(shape=(3,), name='adv_info_player' + str(i+1)) for i in range(num_player-1)]
-    adv_history=[Input(shape=(None,7), name='adv_history_player' + str(i+1)) for i in range(num_player-1)]
+    adv_info = [Input(shape=(3,), name='adv_info_player' + str(i+1)) for i in range(config.game_param['MAX_PLAYER']-1)]
+    adv_history=[Input(shape=(None,7), name='adv_history_player' + str(i+1)) for i in range(config.game_param['MAX_PLAYER']-1)]
 
     x1 = actions_preprocessing(my_history)
     x1 = Concatenate(axis=-1)([main_input,my_info,x1])
