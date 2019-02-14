@@ -78,7 +78,7 @@ class MCCFR():
 
             newState, value, done = currentNode.state.takeAction(
                 simulationAction)  # the value of the newState from the POV of the new playerTurn
-            breadcrumbs.append((currentNode,simulationEdge))
+            breadcrumbs.append((currentNode, simulationEdge))
             currentNode = simulationEdge.outNode
 
         return currentNode, value, done, breadcrumbs

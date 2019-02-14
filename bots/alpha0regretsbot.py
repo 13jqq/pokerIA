@@ -3,18 +3,21 @@ from pypokerengine.api.emulator import Emulator
 from pypokerengine.utils.card_utils import gen_cards
 from gamestate import GameState
 from model import build_model
-from utilities import stable_softmax, truncate_float, parse_action, merge_pkmn_dicts_same_key, treat_neg_regret
+from utilities import stable_softmax, truncate_float, treat_neg_regret, to_list
 import config
 import random
+import os
 import argparse
+import itertools
 import mccfr as mc
 import numpy as np
 
 #default bot parameters
-num_player = 2
+foldername = list(itertools.chain.from_iterable([to_list(config.game_param[k]) for k in config.game_param.keys()])) + list(itertools.chain.from_iterable([to_list(config.network_param[k]) for k in config.network_param.keys()]))
+foldername = "_".join([str(x) for x in foldername])
 cpuct = 1
 nb_mccfr_sim = config.mccfr['MCCFR_SIMS']
-weight = None
+weight = os.path.join(config.valuation_param['LAST_MODEL_DIR'], foldername, 'current_final_weights.h5')
 
 
 class Alpha0Regret(BasePokerPlayer):
@@ -35,18 +38,6 @@ class Alpha0Regret(BasePokerPlayer):
 
     # Setup Emulator object by registering game information
     def declare_action(self, valid_actions, hole_card, round_state):
-        if self.total_round_money is None:
-            pay_history = merge_pkmn_dicts_same_key(
-                [{x['uuid']: parse_action(x, 1)[6]} for k in round_state['action_histories'].keys() for x
-                 in round_state['action_histories'][k]])
-            self.total_round_money = sum([player['stack'] + sum(pay_history[player['uuid']]) for player in round_state['seats']])
-
-        if self.intial_round_stack is None:
-            pay_history = merge_pkmn_dicts_same_key(
-                [{x['uuid']: parse_action(x, 1)[6]} for k in round_state['action_histories'].keys() for x
-                 in round_state['action_histories'][k]])
-            self.intial_round_stack = sum(
-                [player['stack'] + sum(pay_history[player['uuid']]) for player in round_state['seats'] if player['uuid'] == self.uuid])
 
         state=GameState(self.uuid, round_state, gen_cards(hole_card), self.emulator)
         if self.mccfr == None or state.id not in self.mccfr.tree:
@@ -60,7 +51,10 @@ class Alpha0Regret(BasePokerPlayer):
 
         action = self.chooseAction(pi)
         if self.memory is not None:
-            self.memory.commit_stmemory(self.uuid,state.convertStateToModelInput(), pi, np.zeros((config.game_param['MAX_PLAYER'],)))
+            nb_unit=config.game_param['MAX_PLAYER']
+            if nb_unit < 3:
+                nb_unit=1
+            self.memory.commit_stmemory(self.uuid,state.convertStateToModelInput(), pi, np.zeros((nb_unit,)))
 
         return list(state.get_action_list()[action].values())
 
@@ -76,8 +70,7 @@ class Alpha0Regret(BasePokerPlayer):
         self.emulator.set_blind_structure(blind_structure)
 
     def receive_round_start_message(self, round_count, hole_card, seats):
-        self.intial_round_stack = None
-        self.total_round_money = None
+        pass
 
     def receive_street_start_message(self, street, round_state):
         pass
@@ -86,8 +79,7 @@ class Alpha0Regret(BasePokerPlayer):
         pass
 
     def receive_round_result_message(self, winners, hand_info, round_state):
-        value = ([player['stack'] for player in round_state['seats'] if player['uuid'] == self.uuid][0] - self.intial_round_stack)/self.total_round_money
-
+        pass
 
     def buildMCCFR(self, state):
         self.root = mc.Node(state)
@@ -122,7 +114,6 @@ class Alpha0Regret(BasePokerPlayer):
     def get_preds(self, state):
         # predict the leaf
         main_input, my_info, my_history, adv_info, adv_history = state.convertStateToModelInput()
-        print(main_input.shape, my_info.shape, my_history.shape, [a.shape for a in adv_info], [a.shape for a in adv_history])
         preds = self.model.predict([main_input, my_info, my_history, *adv_info, *adv_history])
         value_array = preds[0]
         logits_array = preds[1]
@@ -170,7 +161,6 @@ class Alpha0Regret(BasePokerPlayer):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--nump', '-np', default=num_player, help='number of players')
     parser.add_argument('--cpuct', '-cp', default=cpuct, help='cpuct')
     parser.add_argument('--mccfr_simulations', '-mc', default=nb_mccfr_sim, help='Number of montecarlo simulation')
     parser.add_argument('--weight', '-w', default=weight, help='path for weights')
@@ -178,9 +168,10 @@ def parse_args():
 
 def setup_ai():
     args = parse_args()
-    model = build_model(args.nump)
+    model = build_model()
     if args.weight is not None:
-        model.load_weights(args.weight, by_name=True)
+        if os.path.exists(args.weight):
+            model.load_weights(args.weight, by_name=True)
     return Alpha0Regret(args.cpuct, args.mccfr_simulations, model)
 
 

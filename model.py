@@ -22,8 +22,7 @@ sharedDense = Dense(500,
                 kernel_initializer='glorot_normal',
                 bias_initializer='zeros',
                 kernel_regularizer=regularizers.l2(config.training_param['REG_CONST']),
-                name='adv_preprocess'
-                )
+                name='adv_preprocess')
 
 pred_value_unit=config.game_param['MAX_PLAYER']
 if pred_value_unit < 3:
@@ -107,7 +106,7 @@ def policy_head(x):
     )(x)
     return (x)
 
-def build_model(num_player):
+def build_model():
     main_input = Input(shape=(16,), name = 'main_input')
     my_info = Input(shape=(3,), name = 'my_info')
     my_history = Input(shape=(None,7), name='my_history')
@@ -115,13 +114,13 @@ def build_model(num_player):
     adv_history=[Input(shape=(None,7), name='adv_history_player' + str(i+1)) for i in range(config.game_param['MAX_PLAYER']-1)]
 
     x1 = actions_preprocessing(my_history)
-    x1 = Concatenate(axis=-1)([main_input,my_info,x1])
+    x1 = Concatenate(axis=-1)([main_input, my_info, x1])
     x1 = my_preprocessing(x1)
 
     x2=[]
     for idx,h in enumerate(adv_history):
         res = actions_preprocessing(h)
-        res = Concatenate(axis=-1)([main_input,adv_info[idx],res])
+        res = Concatenate(axis=-1)([main_input, adv_info[idx], res])
         res = adv_preprocessing(res)
         x2.append(res)
     if len(x2) > 1:
@@ -136,10 +135,9 @@ def build_model(num_player):
     vh = value_head(x)
     ph = policy_head(x)
 
-    model = Model(inputs=[main_input,my_info,my_history,*adv_info,*adv_history], outputs=[vh, ph])
+    model = Model(inputs=[main_input, my_info,my_history, *adv_info, *adv_history], outputs=[vh, ph])
     model.compile(loss={'value_head': 'mean_squared_error', 'policy_head': 'categorical_crossentropy'},
         optimizer=SGD(lr=config.training_param['LEARNING_RATE'], momentum = config.training_param['MOMENTUM'],
                       decay=config.training_param['DECAY']),
-        loss_weights={'value_head': 0.5, 'policy_head': 0.5}
-        )
+        loss_weights={'value_head': 0.5, 'policy_head': 0.5})
     return model
