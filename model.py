@@ -137,7 +137,7 @@ def build_model():
 
     model = Model(inputs=[main_input, my_info,my_history, *adv_info, *adv_history], outputs=[vh, ph])
     model.compile(loss={'value_head': 'mean_squared_error', 'policy_head': 'categorical_crossentropy'},
-        optimizer=SGD(lr=config.training_param['LEARNING_RATE'], momentum = config.training_param['MOMENTUM'],
+        optimizer=SGD(lr=config.training_param['LEARNING_RATE'], momentum=config.training_param['MOMENTUM'],
                       decay=config.training_param['DECAY']),
         loss_weights={'value_head': 0.5, 'policy_head': 0.5})
     return model

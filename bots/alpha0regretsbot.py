@@ -144,6 +144,9 @@ class Alpha0Regret(BasePokerPlayer):
         if np.sum(pi) == 0:
             for action, edge in edges:
                 pi[action] = treat_neg_regret(abs(min(0, edge.stats['R'])))
+            if np.sum(pi) == 0:
+                for action, edge in edges:
+                    pi[action] = 1/len(edges)
 
         pi = pi / np.sum(pi)
         return pi
