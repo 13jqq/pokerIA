@@ -3,13 +3,13 @@ from bots.alpha0regretsbot import Alpha0Regret
 from model import build_model
 from memory import Memory
 from utilities import initialize_new_emulator, merge_pkmn_dicts_same_key, parse_action, to_list
-from shutil import copyfile, rmtree
+from shutil import copyfile
 import random
 import config
 import itertools
 import os
 
-num_game = 10
+num_game = 1000
 
 foldername = list(itertools.chain.from_iterable([to_list(config.game_param[k]) for k in config.game_param.keys()])) + list(itertools.chain.from_iterable([to_list(config.network_param[k]) for k in config.network_param.keys()]))
 foldername = "_".join([str(x) for x in foldername])
@@ -82,7 +82,7 @@ for game in range(starting_game, starting_game + num_game):
 log_weights = [f for f in os.listdir(log_folder) if f.endswith('.h5')]
 
 if len(log_weights) > 0:
-    rmtree(save_model)
+    [os.remove(os.path.join(save_model,f)) for f in os.listdir(save_model) if f.endswith('.h5')]
     log_weights.sort(key=lambda f: int(''.join(filter(str.isdigit, f))) or -1)
     copyfile(os.path.join(log_folder, log_weights[-1]), os.path.join(save_model, log_weights[-1]))
 

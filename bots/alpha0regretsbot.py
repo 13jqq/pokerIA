@@ -17,7 +17,12 @@ foldername = list(itertools.chain.from_iterable([to_list(config.game_param[k]) f
 foldername = "_".join([str(x) for x in foldername])
 cpuct = 1
 nb_mccfr_sim = config.mccfr['MCCFR_SIMS']
-weight = os.path.join(config.valuation_param['LAST_MODEL_DIR'], foldername, 'current_final_weights.h5')
+weight = None
+final_weights = [f for f in os.listdir(os.path.join(config.valuation_param['LAST_MODEL_DIR'], foldername)) if f.endswith('.h5')]
+if len(final_weights) > 0:
+    final_weights.sort(key=lambda f: int(''.join(filter(str.isdigit, f))) or -1)
+    weight = os.path.join(config.valuation_param['LAST_MODEL_DIR'], foldername, final_weights[-1])
+
 
 
 class Alpha0Regret(BasePokerPlayer):
