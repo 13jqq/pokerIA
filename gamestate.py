@@ -62,10 +62,7 @@ class GameState():
 
     def convertStateToModelInput(self):
         player=[player for player in self.state['table'].seats.players if player.uuid == self.playerTurn]
-        if len(player)==1:
-            hole_card=player[0].hole_card
-        else:
-            hole_card=self.my_hole_card
+        hole_card=player[0].hole_card
         hole_card = list(itertools.chain.from_iterable([[(card.suit-np.mean([2,4,8,16]))/np.std([2,4,8,16]),(card.rank-np.mean([2,3,4,5,6,7,8,9,10,11,12,13,14]))/np.std([2,3,4,5,6,7,8,9,10,11,12,13,14])] for card in hole_card]))
         community_card = list(itertools.chain.from_iterable([[(card.suit-np.mean([2,4,8,16]))/np.std([2,4,8,16]),(card.rank-np.mean([2,3,4,5,6,7,8,9,10,11,12,13,14]))/np.std([2,3,4,5,6,7,8,9,10,11,12,13,14])] for card in self.state['table'].get_community_card()]))
         cards = hole_card + community_card + ([0]*(14-len(hole_card) - len(community_card)))
@@ -103,7 +100,7 @@ class GameState():
     def takeAction(self, action):
         action = build_action_list(self.state['table'].seats.players[self.state['next_player']].stack, self.state['table'].seats.players)[action]
         game_state, events = self.emulator.apply_action(self.state, action['action'], action['amount'])
-        value = {}
+        value = 0
         done = 0
         if events[-1]['type'] == "event_game_finish":
             events.pop(-1)
@@ -115,6 +112,7 @@ class GameState():
             value = {player2.uuid: (player2.stack - player.stack - sum(pay_history[player.uuid]))/self.total_money for player2 in
                      newState.state['table'].seats.players for player in
                      self.state['table'].seats.players if player.uuid == player2.uuid}
+            value = value[self.my_uuid]
             done = 1
 
         return (newState, value, done)

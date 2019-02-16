@@ -6,7 +6,7 @@ from pypokerengine.api.emulator import Emulator
 from pypokerengine.utils.card_utils import gen_cards
 from gamestate import GameState
 from model import build_model
-from utilities import stable_softmax, truncate_float, treat_neg_regret, to_list
+from utilities import stable_softmax, truncate_float, to_list
 import config
 import random
 import os
@@ -44,10 +44,7 @@ class Alpha0Regret(BasePokerPlayer):
 
         action = self.chooseAction(pi)
         if self.memory is not None:
-            nb_unit=config.game_param['MAX_PLAYER']
-            if nb_unit < 3:
-                nb_unit=1
-            self.memory.commit_stmemory(self.uuid,state.convertStateToModelInput(), pi, np.zeros((nb_unit,)))
+            self.memory.commit_stmemory(self.uuid,state.convertStateToModelInput(), pi, np.zeros((1,)))
 
         return list(state.get_action_list()[action].values())
 
@@ -76,13 +73,13 @@ class Alpha0Regret(BasePokerPlayer):
 
     def buildMCCFR(self, state):
         self.root = mc.Node(state)
-        self.mccfr = mc.MCCFR(self.root)
+        self.mccfr = mc.MCCFR(self.root, self.uuid)
 
     def changeRootMCCFR(self, state):
         self.mccfr.root = self.mccfr.tree[state.id]
 
     def simulate(self):
-        leaf, value, done, breadcrumbs = self.mccfr.moveToLeaf()
+        leaf, value, done, breadcrumbs = self.mccfr.moveToLeaf(self.model)
         value, breadcrumbs = self.evaluateLeaf(leaf, value, done, breadcrumbs)
         self.mccfr.backFill(value, breadcrumbs)
 
@@ -110,13 +107,7 @@ class Alpha0Regret(BasePokerPlayer):
         preds = self.model.predict([main_input, my_info, my_history, *adv_info, *adv_history])
         value_array = preds[0]
         logits_array = preds[1]
-        if config.game_param['MAX_PLAYER'] < 3:
-            value = {x.uuid:(-1)**(idx)*value_array[0][0] for idx,x in enumerate(state.state['table'].seats.players)}
-        else:
-            value_sum_zero_array = np.asarray([value_array[0][idx] for idx, x in enumerate(state['table'].seats.players)])
-            value_sum_zero_array = value_sum_zero_array - (sum(value_sum_zero_array)/len(value_sum_zero_array))
-            value = {x.uuid: value_sum_zero_array[idx] for idx, x in enumerate(state['table'].seats.players)}
-
+        value = value_array[0][0]
         logits = logits_array[0]
 
         allowedActions = state.allowed_action

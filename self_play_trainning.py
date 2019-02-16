@@ -69,10 +69,7 @@ for game in range(starting_game, starting_game + num_game):
                 score = {x['uuid']: ((x['stack'] - player_initial_stack[x['uuid']]) / total_round_money) for x in
                          events[-1]['round_state']['seats']}
             for e in memory.stmemory:
-                if config.game_param['MAX_PLAYER'] < 3:
-                    scorelist = [score[e['playerTurn']]]
-                else:
-                    scorelist = [score[e['playerTurn']]] + [score[s] for s in score.keys() if s != e['playerTurn']]
+                scorelist = [score[e['playerTurn']]]
                 for i in range(0,len(scorelist)):
                     e['score'][i] = scorelist[i]
             memory.commit_ltmemory()

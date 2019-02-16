@@ -24,10 +24,6 @@ sharedDense = Dense(500,
                 kernel_regularizer=regularizers.l2(config.training_param['REG_CONST']),
                 name='adv_preprocess')
 
-pred_value_unit=config.game_param['MAX_PLAYER']
-if pred_value_unit < 3:
-    pred_value_unit = 1
-
 def lr_scheduler(epochs):
     for k in config.training_param['LEARNING_RATE_SCHEDULE'].keys():
         if epochs > k:
@@ -81,7 +77,7 @@ def value_head(x):
     x = BatchNormalization()(x)
 
     x = Dense(
-        pred_value_unit,
+        1,
         use_bias=False,
         activation='tanh',
         kernel_initializer='glorot_normal',
