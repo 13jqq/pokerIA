@@ -1,5 +1,6 @@
 import numpy as np
 import config
+import math
 
 class Node():
 
@@ -32,10 +33,9 @@ class Edge():
 
 class MCCFR():
 
-    def __init__(self, root, cpuct):
+    def __init__(self, root):
         self.root = root
         self.tree = {}
-        self.cpuct = cpuct
         self.addNode(root)
 
     def __len__(self):
@@ -54,7 +54,7 @@ class MCCFR():
 
             if currentNode == self.root:
                 epsilon = config.mccfr['EPSILON']
-                nu = np.random.dirichlet([config.mccfr['ALPHA']] * len(currentNode.edges))
+                nu = np.random.gamma(config.mccfr['ALPHA'], 1, len(currentNode.edges))
             else:
                 epsilon = 0
                 nu = [0] * len(currentNode.edges)
@@ -65,7 +65,7 @@ class MCCFR():
 
             for idx, (action, edge) in enumerate(currentNode.edges):
 
-                U = self.cpuct * \
+                U = (math.log((config.mccfr['CPUCT_BASE'] + 1 + edge.stats['N'])/config.mccfr['CPUCT_BASE']) + config.mccfr['CPUCT_INIT']) * \
                     ((1 - epsilon) * edge.stats['P'] + epsilon * nu[idx]) * \
                     np.sqrt(Nb) / (1 + edge.stats['N'])
 

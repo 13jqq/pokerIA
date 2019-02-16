@@ -1,13 +1,18 @@
 from collections import deque
 import numpy as np
 import config
+import json
+import os
 
 
 class Memory:
-    def __init__(self):
+    def __init__(self, path=None, filename=None):
         self.MEMORY_SIZE = config.training_param['MEMORY_SIZE']
         self.ltmemory = deque(maxlen=self.MEMORY_SIZE)
         self.stmemory = deque(maxlen=self.MEMORY_SIZE)
+        if path is not None and filename is not None:
+            if os.path.exists(os.path.join(path, filename)):
+                self.load_lt_memory(path, filename)
 
     def commit_stmemory(self, uuid, input_state, output_probs, output_score):
         self.stmemory.append({
@@ -22,8 +27,29 @@ class Memory:
             self.ltmemory.append(i)
         self.clear_stmemory()
 
+    def commit_and_save_ltmemory(self, path, filename):
+        if len(self.stmemory) + len(self.ltmemory) > self.MEMORY_SIZE:
+            self.save_lt_memory(path, filename)
+            self.clear_ltmemory()
+        for i in self.stmemory:
+            self.ltmemory.append(i)
+        self.clear_stmemory()
+
     def clear_stmemory(self):
         self.stmemory = deque(maxlen=self.MEMORY_SIZE)
+
+    def clear_ltmemory(self):
+        self.ltmemory = deque(maxlen=self.MEMORY_SIZE)
+
+    def save_lt_memory(self, path, filename):
+        with open(os.path.join(path, filename), 'w') as outfile:
+            json.dump(list(self.ltmemory), outfile)
+
+    def load_lt_memory(self, path, filename):
+        with open(os.path.join(path, filename), 'r') as outfile:
+            data = json.load(outfile)
+        self.ltmemory = deque(list(data), maxlen=self.MEMORY_SIZE)
+
 
     def convertToModelData(self, memoryType = 'st'):
         assert memoryType in ['st', 'lt'], 'choose between long term (lt) and short term (st) memory'

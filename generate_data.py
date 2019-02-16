@@ -1,11 +1,10 @@
 from pypokerengine.api.emulator import Emulator
 from bots.alpha0regretsbot import Alpha0Regret
-from model import build_model, lr_scheduler
+from model import build_model
 from memory import Memory
 from utilities import initialize_new_emulator, merge_pkmn_dicts_same_key, parse_action, to_list
-from shutil import copyfile
-from keras.callbacks import LearningRateScheduler
 import random
+import json
 import config
 import itertools
 import os
@@ -36,8 +35,6 @@ if len(log_weights) > 0:
         starting_game = int(log_weights[-1].split('_')[0])
     except:
         pass
-
-lrate = LearningRateScheduler(lr_scheduler)
 
 for game in range(starting_game, starting_game + num_game):
 
@@ -77,16 +74,5 @@ for game in range(starting_game, starting_game + num_game):
                     e['score'][i] = scorelist[i]
             memory.commit_ltmemory()
 
-    data = memory.convertToModelData('lt')
-    batch_size=min(data['input'][0].shape[0], config.training_param['BATCH_SIZE'])
-    model.fit(x=data['input'], y=data['output'], batch_size=batch_size, epochs=(game+1)*config.training_param['EPOCHS'], verbose=1, initial_epoch=game*config.training_param['EPOCHS'], callbacks=[lrate])
-    model.save_weights(os.path.join(log_folder, str(game+1)+'_weights.h5'))
-
-log_weights = [f for f in os.listdir(log_folder) if f.endswith('.h5')]
-
-if len(log_weights) > 0:
-    [os.remove(os.path.join(save_model,f)) for f in os.listdir(save_model) if f.endswith('.h5')]
-    log_weights.sort(key=lambda f: int(''.join(filter(str.isdigit, f))) or -1)
-    copyfile(os.path.join(log_folder, log_weights[-1]), os.path.join(save_model, log_weights[-1]))
 
 

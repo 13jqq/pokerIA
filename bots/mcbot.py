@@ -3,6 +3,7 @@ from pypokerengine.players import BasePokerPlayer
 from pypokerengine.utils.card_utils import _pick_unused_card, _fill_community_card, gen_cards
 
 
+
 # Estimate the ratio of winning games given the current state of the game
 def estimate_win_rate(nb_simulation, nb_player, hole_card, community_card=None):
     if not community_card: community_card = []

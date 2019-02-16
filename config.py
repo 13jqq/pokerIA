@@ -6,8 +6,10 @@ game_param={
 
 mccfr={
     'MCCFR_SIMS': 800,
-    'EPSILON': 0.2,
-    'ALPHA': 0.8
+    'EPSILON': 0.25,
+    'ALPHA': 0.3,
+    'CPUCT_BASE': 19652,
+    'CPUCT_INIT': 1.25
 }
 
 training_param={
@@ -16,9 +18,13 @@ training_param={
     'BATCH_SIZE': 256,
     'EPOCHS': 1,
     'REG_CONST': 0.0001,
-    'LEARNING_RATE': 0.1,
     'MOMENTUM': 0.9,
-    'DECAY': 0.000000001
+    'LEARNING_RATE_SCHEDULE':  {
+        0: 0.2,
+        100000: 0.02,
+        300000: 0.002,
+        500000: 0.0002
+    }
 }
 
 valuation_param={

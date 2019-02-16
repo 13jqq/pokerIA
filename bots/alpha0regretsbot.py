@@ -1,3 +1,6 @@
+import sys
+sys.path.append('D:/projetsIA/pokerIA')
+
 from pypokerengine.players import BasePokerPlayer
 from pypokerengine.api.emulator import Emulator
 from pypokerengine.utils.card_utils import gen_cards
@@ -7,29 +10,14 @@ from utilities import stable_softmax, truncate_float, treat_neg_regret, to_list
 import config
 import random
 import os
-import argparse
 import itertools
 import mccfr as mc
 import numpy as np
 
-#default bot parameters
-foldername = list(itertools.chain.from_iterable([to_list(config.game_param[k]) for k in config.game_param.keys()])) + list(itertools.chain.from_iterable([to_list(config.network_param[k]) for k in config.network_param.keys()]))
-foldername = "_".join([str(x) for x in foldername])
-cpuct = 1
-nb_mccfr_sim = config.mccfr['MCCFR_SIMS']
-weight = None
-final_weights = [f for f in os.listdir(os.path.join(config.valuation_param['LAST_MODEL_DIR'], foldername)) if f.endswith('.h5')]
-if len(final_weights) > 0:
-    final_weights.sort(key=lambda f: int(''.join(filter(str.isdigit, f))) or -1)
-    weight = os.path.join(config.valuation_param['LAST_MODEL_DIR'], foldername, final_weights[-1])
-
-
-
 class Alpha0Regret(BasePokerPlayer):
 
-    def __init__(self, cpuct, mccfr_simulations, model, exp=0, uuid=None, emulator=None, memory=None):
-        super(Alpha0Regret, self).__init__()
-        self.cpuct = cpuct
+    def __init__(self, mccfr_simulations, model, exp=0, uuid=None, emulator=None, memory=None):
+        super().__init__()
         self.MCCFR_simulations = mccfr_simulations
         self.model = model
         self.mccfr = None
@@ -88,7 +76,7 @@ class Alpha0Regret(BasePokerPlayer):
 
     def buildMCCFR(self, state):
         self.root = mc.Node(state)
-        self.mccfr = mc.MCCFR(self.root, self.cpuct)
+        self.mccfr = mc.MCCFR(self.root)
 
     def changeRootMCCFR(self, state):
         self.mccfr.root = self.mccfr.tree[state.id]
@@ -148,10 +136,7 @@ class Alpha0Regret(BasePokerPlayer):
             pi[action] = max(0, edge.stats['R'])
         if np.sum(pi) == 0:
             for action, edge in edges:
-                pi[action] = treat_neg_regret(abs(min(0, edge.stats['R'])))
-            if np.sum(pi) == 0:
-                for action, edge in edges:
-                    pi[action] = 1/len(edges)
+                pi[action] = edge.stats['N']
 
         pi = pi / np.sum(pi)
         return pi
@@ -167,19 +152,28 @@ class Alpha0Regret(BasePokerPlayer):
 
         return action
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--cpuct', '-cp', default=cpuct, help='cpuct')
-    parser.add_argument('--mccfr_simulations', '-mc', default=nb_mccfr_sim, help='Number of montecarlo simulation')
-    parser.add_argument('--weight', '-w', default=weight, help='path for weights')
-    return parser.parse_args()
-
 def setup_ai():
-    args = parse_args()
+
+    # default bot parameters
+    foldername = list(
+        itertools.chain.from_iterable([to_list(config.game_param[k]) for k in config.game_param.keys()])) + list(
+        itertools.chain.from_iterable([to_list(config.network_param[k]) for k in config.network_param.keys()]))
+    foldername = "_".join([str(x) for x in foldername])
+    nb_mccfr_sim = config.mccfr['MCCFR_SIMS']
+    weight = None
+    final_weights = [f for f in os.listdir(os.path.join(config.valuation_param['LAST_MODEL_DIR'], foldername)) if
+                     f.endswith('.h5')]
+    if len(final_weights) > 0:
+        final_weights.sort(key=lambda f: int(''.join(filter(str.isdigit, f))) or -1)
+        weight = os.path.join(config.valuation_param['LAST_MODEL_DIR'], foldername, final_weights[-1])
+
     model = build_model()
-    if args.weight is not None:
-        if os.path.exists(args.weight):
-            model.load_weights(args.weight, by_name=True)
-    return Alpha0Regret(args.cpuct, args.mccfr_simulations, model)
+    if weight is not None:
+        if os.path.exists(weight):
+            model.load_weights(weight, by_name=True)
+
+    return Alpha0Regret(nb_mccfr_sim, model)
+
+
 
 

@@ -28,6 +28,11 @@ pred_value_unit=config.game_param['MAX_PLAYER']
 if pred_value_unit < 3:
     pred_value_unit = 1
 
+def lr_scheduler(epochs):
+    for k in config.training_param['LEARNING_RATE_SCHEDULE'].keys():
+        if epochs > k:
+            return config.training_param['LEARNING_RATE_SCHEDULE'][k]
+
 def actions_preprocessing(x):
     x=Masking(mask_value=0.0)(x)
     x=sharedLSTM(x)
@@ -137,7 +142,6 @@ def build_model():
 
     model = Model(inputs=[main_input, my_info,my_history, *adv_info, *adv_history], outputs=[vh, ph])
     model.compile(loss={'value_head': 'mean_squared_error', 'policy_head': 'categorical_crossentropy'},
-        optimizer=SGD(lr=config.training_param['LEARNING_RATE'], momentum=config.training_param['MOMENTUM'],
-                      decay=config.training_param['DECAY']),
+        optimizer=SGD(lr=config.training_param['LEARNING_RATE_SCHEDULE'][0], momentum=config.training_param['MOMENTUM']),
         loss_weights={'value_head': 0.5, 'policy_head': 0.5})
     return model
