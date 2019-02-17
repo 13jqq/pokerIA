@@ -5,4 +5,4 @@ max_round: 10
 small_blind: 10
 ai_players:
 - name: fish_player_1
-  path: D:/projetsIA/pokerIA/bots/alpha0regretsbot.pys
+  path: D:/projetsIA/pokerIA/bots/alpha0regretsbot.py

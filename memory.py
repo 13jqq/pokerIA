@@ -42,13 +42,22 @@ class Memory:
         self.ltmemory = deque(maxlen=self.MEMORY_SIZE)
 
     def save_lt_memory(self, path, filename):
-        with open(os.path.join(path, filename), 'w') as outfile:
-            json.dump(list(self.ltmemory), outfile)
+       save = [{'playerTurn': e['playerTurn'],
+         'nn_input': [e['nn_input'][0].tolist(), e['nn_input'][1].tolist(), e['nn_input'][2].tolist(),
+                      [x.tolist() for x in e['nn_input'][3]], [x.tolist() for x in e['nn_input'][4]]],
+         'probs': e['probs'].tolist(), 'score': e['score'].tolist()} for e in
+        self.ltmemory]
+       with open(os.path.join(path, filename), 'w') as outfile:
+            json.dump(save, outfile)
 
     def load_lt_memory(self, path, filename):
         with open(os.path.join(path, filename), 'r') as outfile:
             data = json.load(outfile)
-        self.ltmemory = deque(list(data), maxlen=self.MEMORY_SIZE)
+        data = [{'playerTurn': e['playerTurn'],
+         'nn_input': [np.asarray(e['nn_input'][0]), np.asarray(e['nn_input'][1]), np.asarray(e['nn_input'][2]),
+                      [np.asarray(x) for x in e['nn_input'][3]], [np.asarray(x) for x in e['nn_input'][4]]],
+         'probs': np.asarray(e['probs']), 'score': np.asarray(e['score'])} for e in data]
+        self.ltmemory = deque(data, maxlen=self.MEMORY_SIZE)
 
 
     def convertToModelData(self, memoryType = 'st'):

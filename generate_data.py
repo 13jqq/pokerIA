@@ -4,7 +4,7 @@ from model import build_model
 from memory import Memory
 from utilities import initialize_new_emulator, merge_pkmn_dicts_same_key, parse_action, to_list
 import random
-import json
+import shortuuid
 import config
 import itertools
 import os
@@ -14,27 +14,23 @@ num_game = 1000
 foldername = list(itertools.chain.from_iterable([to_list(config.game_param[k]) for k in config.game_param.keys()])) + list(itertools.chain.from_iterable([to_list(config.network_param[k]) for k in config.network_param.keys()]))
 foldername = "_".join([str(x) for x in foldername])
 
-log_folder = os.path.join(config.training_param['LOG_DIR'], foldername)
-save_model = os.path.join(config.valuation_param['LAST_MODEL_DIR'], foldername)
+data_folder = os.path.join(config.acquisition_param['ACQUISITION_DIR'], foldername)
+log_folder_weights = os.path.join(config.training_param['LOG_DIR'], foldername,'weights')
 
-if not os.path.exists(log_folder):
-    os.makedirs(log_folder)
 
-if not os.path.exists(save_model):
-    os.makedirs(save_model)
+if not os.path.exists(data_folder):
+    os.makedirs(data_folder)
 
 memory = Memory()
 emulator = Emulator()
 model = build_model()
 starting_game = 0
-log_weights = [f for f in os.listdir(log_folder) if f.endswith('.h5')]
-if len(log_weights) > 0:
-    log_weights.sort(key=lambda f: int(''.join(filter(str.isdigit, f))) or -1)
-    model.load_weights(os.path.join(log_folder,log_weights[-1]))
-    try:
-        starting_game = int(log_weights[-1].split('_')[0])
-    except:
-        pass
+if os.path.exists(log_folder_weights):
+    log_weights = [f for f in os.listdir(log_folder_weights) if f.endswith('.h5')]
+    if len(log_weights) > 0:
+        log_weights.sort(key=lambda f: int(''.join(filter(str.isdigit, f))) or -1)
+        model.load_weights(os.path.join(log_folder_weights,log_weights[-1]))
+
 
 for game in range(starting_game, starting_game + num_game):
 
@@ -72,7 +68,7 @@ for game in range(starting_game, starting_game + num_game):
                     scorelist = [score[e['playerTurn']]] + [score[s] for s in score.keys() if s != e['playerTurn']]
                 for i in range(0,len(scorelist)):
                     e['score'][i] = scorelist[i]
-            memory.commit_ltmemory()
+            memory.commit_and_save_ltmemory(data_folder,shortuuid.uuid()+'.json')
 
 
 

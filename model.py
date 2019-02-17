@@ -26,8 +26,8 @@ sharedDense = Dense(500,
 
 def lr_scheduler(epochs):
     for k in config.training_param['LEARNING_RATE_SCHEDULE'].keys():
-        if epochs > k:
-            return config.training_param['LEARNING_RATE_SCHEDULE'][k]
+        if epochs >= k:
+            return float(config.training_param['LEARNING_RATE_SCHEDULE'][k])
 
 def actions_preprocessing(x):
     x=Masking(mask_value=0.0)(x)

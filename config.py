@@ -13,7 +13,7 @@ mccfr={
 }
 
 training_param={
-    'LOG_DIR':'D:/projetsIA/pokerIA/training_weights',
+    'LOG_DIR':'D:/projetsIA/pokerIA/training_logs',
     'MEMORY_SIZE': 30000,
     'BATCH_SIZE': 256,
     'EPOCHS': 1,
@@ -29,6 +29,10 @@ training_param={
 
 valuation_param={
     'LAST_MODEL_DIR': 'D:/projetsIA/pokerIA/final_weights'
+}
+
+acquisition_param={
+    'ACQUISITION_DIR': 'D:/projetsIA/pokerIA/generated_poker_data'
 }
 
 network_param={

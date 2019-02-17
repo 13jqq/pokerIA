@@ -18,8 +18,17 @@ foldername = "_".join([str(x) for x in foldername])
 log_folder = os.path.join(config.training_param['LOG_DIR'], foldername)
 save_model = os.path.join(config.valuation_param['LAST_MODEL_DIR'], foldername)
 
+log_folder_weights = os.path.join(log_folder,'weights')
+log_folder_memory = os.path.join(log_folder,'memory')
+
 if not os.path.exists(log_folder):
     os.makedirs(log_folder)
+
+if not os.path.exists(log_folder_weights):
+    os.makedirs(log_folder_weights)
+
+if not os.path.exists(log_folder_memory):
+    os.makedirs(log_folder_memory)
 
 if not os.path.exists(save_model):
     os.makedirs(save_model)
@@ -28,14 +37,17 @@ memory = Memory()
 emulator = Emulator()
 model = build_model()
 starting_game = 0
-log_weights = [f for f in os.listdir(log_folder) if f.endswith('.h5')]
+log_weights = [f for f in os.listdir(log_folder_weights) if f.endswith('.h5')]
 if len(log_weights) > 0:
     log_weights.sort(key=lambda f: int(''.join(filter(str.isdigit, f))) or -1)
-    model.load_weights(os.path.join(log_folder,log_weights[-1]))
+    model.load_weights(os.path.join(log_folder_weights,log_weights[-1]))
     try:
         starting_game = int(log_weights[-1].split('_')[0])
     except:
         pass
+if os.path.exists(os.path.join(log_folder_memory,'latest_memory.json')):
+    memory.load_lt_memory(log_folder_memory,'latest_memory.json')
+
 
 lrate = LearningRateScheduler(lr_scheduler)
 
@@ -50,7 +62,7 @@ for game in range(starting_game, starting_game + num_game):
     players_info={"uuid-"+str(i): {'name': 'player'+str(i), 'stack': random.randint(80, 120)} for i in range(0,nb_player)}
 
     initial_state = emulator.generate_initial_game_state(players_info)
-    [emulator.register_player(k,Alpha0Regret(1,config.mccfr['MCCFR_SIMS'],model,1,k,initialize_new_emulator(nb_player, max_round, sb_amount, ante_amount), memory)) for k in players_info.keys()]
+    [emulator.register_player(k,Alpha0Regret(config.mccfr['MCCFR_SIMS'],model,1,k,initialize_new_emulator(nb_player, max_round, sb_amount, ante_amount), memory)) for k in players_info.keys()]
     game_state=initial_state
     events=[{'type': None}]
     while events[-1]['type'] != "event_game_finish":
@@ -69,6 +81,7 @@ for game in range(starting_game, starting_game + num_game):
                 score = {x['uuid']: ((x['stack'] - player_initial_stack[x['uuid']]) / total_round_money) for x in
                          events[-1]['round_state']['seats']}
             for e in memory.stmemory:
+
                 scorelist = [score[e['playerTurn']]]
                 for i in range(0,len(scorelist)):
                     e['score'][i] = scorelist[i]
@@ -77,7 +90,10 @@ for game in range(starting_game, starting_game + num_game):
     data = memory.convertToModelData('lt')
     batch_size=min(data['input'][0].shape[0], config.training_param['BATCH_SIZE'])
     model.fit(x=data['input'], y=data['output'], batch_size=batch_size, epochs=(game+1)*config.training_param['EPOCHS'], verbose=1, initial_epoch=game*config.training_param['EPOCHS'], callbacks=[lrate])
-    model.save_weights(os.path.join(log_folder, str(game+1)+'_weights.h5'))
+    model.save_weights(os.path.join(log_folder_weights, str(game+1)+'_weights.h5'))
+    memory.save_lt_memory(log_folder_memory,'latest_memory.json')
+    if os.path.exists(os.path.join(log_folder_weights, str(game)+'_weights.h5')):
+        os.remove(os.path.join(log_folder_weights, str(game)+'_weights.h5'))
 
 log_weights = [f for f in os.listdir(log_folder) if f.endswith('.h5')]
 
