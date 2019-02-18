@@ -9,7 +9,7 @@ import config
 import itertools
 import os
 
-num_game = 1000
+num_game = 3000
 
 foldername = list(itertools.chain.from_iterable([to_list(config.game_param[k]) for k in config.game_param.keys()])) + list(itertools.chain.from_iterable([to_list(config.network_param[k]) for k in config.network_param.keys()]))
 foldername = "_".join([str(x) for x in foldername])
@@ -34,6 +34,8 @@ if os.path.exists(log_folder_weights):
 
 for game in range(starting_game, starting_game + num_game):
 
+    print(game)
+
     nb_player = random.randint(2, config.game_param['MAX_PLAYER'])
     sb_amount = random.randint(1, 10)
     ante_amount = random.randint(0, 5)
@@ -43,7 +45,7 @@ for game in range(starting_game, starting_game + num_game):
     players_info={"uuid-"+str(i): {'name': 'player'+str(i), 'stack': random.randint(80, 120)} for i in range(0,nb_player)}
 
     initial_state = emulator.generate_initial_game_state(players_info)
-    [emulator.register_player(k,Alpha0Regret(1,config.mccfr['MCCFR_SIMS'],model,1,k,initialize_new_emulator(nb_player, max_round, sb_amount, ante_amount), memory)) for k in players_info.keys()]
+    [emulator.register_player(k,Alpha0Regret(100,model,1,k,initialize_new_emulator(nb_player, max_round, sb_amount, ante_amount), memory)) for k in players_info.keys()]
     game_state=initial_state
     events=[{'type': None}]
     while events[-1]['type'] != "event_game_finish":
@@ -68,7 +70,11 @@ for game in range(starting_game, starting_game + num_game):
                     scorelist = [score[e['playerTurn']]] + [score[s] for s in score.keys() if s != e['playerTurn']]
                 for i in range(0,len(scorelist)):
                     e['score'][i] = scorelist[i]
+            print(len(memory.ltmemory))
             memory.commit_and_save_ltmemory(data_folder,shortuuid.uuid()+'.json')
+            print(len(memory.ltmemory))
+
+memory.save_lt_memory(data_folder,shortuuid.uuid()+'.json')
 
 
 

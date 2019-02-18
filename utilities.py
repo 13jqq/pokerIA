@@ -62,8 +62,3 @@ def to_list(x):
         x=[x]
     return x
 
-def treat_neg_regret(x):
-        if x == 0:
-            return 0
-        else:
-            return 1/x

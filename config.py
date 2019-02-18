@@ -1,7 +1,7 @@
 game_param={
     'MAX_PLAYER': 2,
     'RAISE_PARTITION_NUM': 100,
-    'ACTIONID' : ['ANTE','SMALLBLIND','BIGBLIND','FOLD','CALL','RAISE']
+    'ACTIONID': ['ANTE','SMALLBLIND','BIGBLIND','FOLD','CALL','RAISE']
 }
 
 mccfr={
