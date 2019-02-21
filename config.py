@@ -36,5 +36,9 @@ acquisition_param={
 }
 
 network_param={
-    'NB_HIDDEN_LAYERS': 1
+    'NB_HIDDEN_LAYERS': 1,
+    'HIDDEN_LAYERS_UNITS': 500,
+    'LAST_LAYER_UNIT': 32,
+    'LSTM_ACTION_PREPROC_UNIT': 100,
+    'PLAYER_SITUATION_PREPROC': 500
 }

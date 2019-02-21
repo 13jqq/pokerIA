@@ -4,43 +4,25 @@ from keras.layers import Input, Dense, BatchNormalization, LeakyReLU, Concatenat
 from keras.optimizers import SGD
 from keras import regularizers
 
-sharedLSTM=LSTM(100,
-           activation='relu',
-           recurrent_activation='relu',
-           use_bias = True,
-           kernel_initializer = 'glorot_uniform',
-           recurrent_initializer = 'identity',
-           bias_initializer = 'zeros',
-           unit_forget_bias = True,
-           kernel_regularizer=regularizers.l2(config.training_param['REG_CONST']),
-           recurrent_regularizer=None,
-           name='preprocess_action')
 
-sharedDense = Dense(500,
-                activation='relu',
-                use_bias=True,
-                kernel_initializer='glorot_normal',
-                bias_initializer='zeros',
-                kernel_regularizer=regularizers.l2(config.training_param['REG_CONST']),
-                name='adv_preprocess')
 
 def lr_scheduler(epochs):
     for k in config.training_param['LEARNING_RATE_SCHEDULE'].keys():
         if epochs >= k:
             return float(config.training_param['LEARNING_RATE_SCHEDULE'][k])
 
-def actions_preprocessing(x):
+def actions_preprocessing(x, sharedLSTM):
     x=Masking(mask_value=0.0)(x)
     x=sharedLSTM(x)
     return x
 
-def adv_preprocessing(x):
+def adv_preprocessing(x, sharedDense):
     x = sharedDense(x)
     x = BatchNormalization()(x)
     return x
 
-def my_preprocessing(x):
-    x = Dense(500,
+def my_preprocessing(x, nb_unit):
+    x = Dense(nb_unit,
               activation='relu',
               use_bias=True,
               kernel_initializer='glorot_normal',
@@ -51,9 +33,9 @@ def my_preprocessing(x):
     x = BatchNormalization()(x)
     return x
 
-def model_hidden(x):
-    for i in range(config.network_param['NB_HIDDEN_LAYERS']):
-        x=Dense(500,
+def model_hidden(x, nb_hidden, nb_hidden_unit):
+    for i in range(nb_hidden):
+        x=Dense(nb_hidden_unit,
                 activation='relu',
                 use_bias=True,
                 kernel_initializer='glorot_normal',
@@ -64,10 +46,10 @@ def model_hidden(x):
         x = BatchNormalization()(x)
     return x
 
-def value_head(x):
+def value_head(x, nb_unit):
 
     x = Dense(
-        32,
+        nb_unit,
         use_bias=False,
         activation='linear',
         kernel_initializer='glorot_normal',
@@ -86,9 +68,9 @@ def value_head(x):
         )(x)
     return (x)
 
-def policy_head(x):
+def policy_head(x, nb_unit):
     x = Dense(
-        32,
+        nb_unit,
         use_bias=False,
         activation='linear',
         kernel_initializer='glorot_normal',
@@ -107,22 +89,47 @@ def policy_head(x):
     )(x)
     return (x)
 
-def build_model():
+def build_model(lstm_action_unit=config.network_param['LSTM_ACTION_PREPROC_UNIT'],
+                player_sit_unit=config.network_param['PLAYER_SITUATION_PREPROC'],
+                nb_hidden=config.network_param['NB_HIDDEN_LAYERS'],
+                nb_hidden_unit=config.network_param['HIDDEN_LAYERS_UNITS'],
+                nb_last_unit=config.network_param['LAST_LAYER_UNIT']):
+
     main_input = Input(shape=(16,), name = 'main_input')
     my_info = Input(shape=(3,), name = 'my_info')
     my_history = Input(shape=(None,7), name='my_history')
     adv_info = [Input(shape=(3,), name='adv_info_player' + str(i+1)) for i in range(config.game_param['MAX_PLAYER']-1)]
     adv_history=[Input(shape=(None,7), name='adv_history_player' + str(i+1)) for i in range(config.game_param['MAX_PLAYER']-1)]
 
-    x1 = actions_preprocessing(my_history)
+    sharedLSTM = LSTM(lstm_action_unit,
+                      activation='relu',
+                      recurrent_activation='relu',
+                      use_bias=True,
+                      kernel_initializer='glorot_uniform',
+                      recurrent_initializer='identity',
+                      bias_initializer='zeros',
+                      unit_forget_bias=True,
+                      kernel_regularizer=regularizers.l2(config.training_param['REG_CONST']),
+                      recurrent_regularizer=None,
+                      name='preprocess_action')
+
+    sharedDense = Dense(player_sit_unit,
+                        activation='relu',
+                        use_bias=True,
+                        kernel_initializer='glorot_normal',
+                        bias_initializer='zeros',
+                        kernel_regularizer=regularizers.l2(config.training_param['REG_CONST']),
+                        name='adv_preprocess')
+
+    x1 = actions_preprocessing(my_history, sharedLSTM)
     x1 = Concatenate(axis=-1)([main_input, my_info, x1])
-    x1 = my_preprocessing(x1)
+    x1 = my_preprocessing(x1, player_sit_unit)
 
     x2=[]
     for idx,h in enumerate(adv_history):
-        res = actions_preprocessing(h)
+        res = actions_preprocessing(h, sharedLSTM)
         res = Concatenate(axis=-1)([main_input, adv_info[idx], res])
-        res = adv_preprocessing(res)
+        res = adv_preprocessing(res, sharedDense)
         x2.append(res)
     if len(x2) > 1:
         x2 = average(x2)
@@ -131,10 +138,10 @@ def build_model():
 
     final_input = Concatenate(axis=-1)([x1,x2])
 
-    x = model_hidden(final_input)
+    x = model_hidden(final_input, nb_hidden, nb_hidden_unit)
 
-    vh = value_head(x)
-    ph = policy_head(x)
+    vh = value_head(x, nb_last_unit)
+    ph = policy_head(x, nb_last_unit)
 
     model = Model(inputs=[main_input, my_info,my_history, *adv_info, *adv_history], outputs=[vh, ph])
     model.compile(loss={'value_head': 'mean_squared_error', 'policy_head': 'categorical_crossentropy'},
