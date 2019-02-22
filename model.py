@@ -21,39 +21,39 @@ def adv_preprocessing(x, sharedDense):
     x = BatchNormalization()(x)
     return x
 
-def my_preprocessing(x, nb_unit):
+def my_preprocessing(x, nb_unit, reg_const):
     x = Dense(nb_unit,
               activation='relu',
               use_bias=True,
               kernel_initializer='glorot_normal',
               bias_initializer='zeros',
-              kernel_regularizer=regularizers.l2(config.training_param['REG_CONST']),
+              kernel_regularizer=regularizers.l2(reg_const),
               name='my_preprocess'
               )(x)
     x = BatchNormalization()(x)
     return x
 
-def model_hidden(x, nb_hidden, nb_hidden_unit):
+def model_hidden(x, nb_hidden, nb_hidden_unit, reg_const):
     for i in range(nb_hidden):
         x=Dense(nb_hidden_unit,
                 activation='relu',
                 use_bias=True,
                 kernel_initializer='glorot_normal',
                 bias_initializer='zeros',
-                kernel_regularizer=regularizers.l2(config.training_param['REG_CONST']),
+                kernel_regularizer=regularizers.l2(reg_const),
                 name='hidden_layer_'+str(i+1)
                 )(x)
         x = BatchNormalization()(x)
     return x
 
-def value_head(x, nb_unit):
+def value_head(x, nb_unit, reg_const):
 
     x = Dense(
         nb_unit,
         use_bias=False,
         activation='linear',
         kernel_initializer='glorot_normal',
-        kernel_regularizer=regularizers.l2(config.training_param['REG_CONST'])
+        kernel_regularizer=regularizers.l2(reg_const)
         )(x)
     x = LeakyReLU()(x)
     x = BatchNormalization()(x)
@@ -63,18 +63,18 @@ def value_head(x, nb_unit):
         use_bias=False,
         activation='tanh',
         kernel_initializer='glorot_normal',
-        kernel_regularizer=regularizers.l2(config.training_param['REG_CONST']),
+        kernel_regularizer=regularizers.l2(reg_const),
         name = 'value_head'
         )(x)
     return (x)
 
-def policy_head(x, nb_unit):
+def policy_head(x, nb_unit, reg_const):
     x = Dense(
         nb_unit,
         use_bias=False,
         activation='linear',
         kernel_initializer='glorot_normal',
-        kernel_regularizer=regularizers.l2(config.training_param['REG_CONST'])
+        kernel_regularizer=regularizers.l2(reg_const)
     )(x)
     x = LeakyReLU()(x)
     x = BatchNormalization()(x)
@@ -84,16 +84,19 @@ def policy_head(x, nb_unit):
         use_bias=False,
         activation='softmax',
         kernel_initializer='glorot_normal',
-        kernel_regularizer=regularizers.l2(config.training_param['REG_CONST']),
+        kernel_regularizer=regularizers.l2(reg_const),
         name='policy_head'
     )(x)
     return (x)
 
 def build_model(lstm_action_unit=config.network_param['LSTM_ACTION_PREPROC_UNIT'],
-                player_sit_unit=config.network_param['PLAYER_SITUATION_PREPROC'],
+                player_sit_unit=config.network_param['PLAYER_SITUATION_PREPROC_UNIT'],
                 nb_hidden=config.network_param['NB_HIDDEN_LAYERS'],
                 nb_hidden_unit=config.network_param['HIDDEN_LAYERS_UNITS'],
-                nb_last_unit=config.network_param['LAST_LAYER_UNIT']):
+                nb_last_unit=config.network_param['LAST_LAYER_UNIT'],
+                lr=config.training_param['LEARNING_RATE_SCHEDULE'][0],
+                momentum=config.training_param['MOMENTUM'],
+                reg_const=config.training_param['REG_CONST']):
 
     main_input = Input(shape=(16,), name = 'main_input')
     my_info = Input(shape=(3,), name = 'my_info')
@@ -109,7 +112,7 @@ def build_model(lstm_action_unit=config.network_param['LSTM_ACTION_PREPROC_UNIT'
                       recurrent_initializer='identity',
                       bias_initializer='zeros',
                       unit_forget_bias=True,
-                      kernel_regularizer=regularizers.l2(config.training_param['REG_CONST']),
+                      kernel_regularizer=regularizers.l2(reg_const),
                       recurrent_regularizer=None,
                       name='preprocess_action')
 
@@ -118,14 +121,14 @@ def build_model(lstm_action_unit=config.network_param['LSTM_ACTION_PREPROC_UNIT'
                         use_bias=True,
                         kernel_initializer='glorot_normal',
                         bias_initializer='zeros',
-                        kernel_regularizer=regularizers.l2(config.training_param['REG_CONST']),
+                        kernel_regularizer=regularizers.l2(reg_const),
                         name='adv_preprocess')
 
     x1 = actions_preprocessing(my_history, sharedLSTM)
     x1 = Concatenate(axis=-1)([main_input, my_info, x1])
-    x1 = my_preprocessing(x1, player_sit_unit)
+    x1 = my_preprocessing(x1, player_sit_unit, reg_const)
 
-    x2=[]
+    x2 = []
     for idx,h in enumerate(adv_history):
         res = actions_preprocessing(h, sharedLSTM)
         res = Concatenate(axis=-1)([main_input, adv_info[idx], res])
@@ -138,13 +141,13 @@ def build_model(lstm_action_unit=config.network_param['LSTM_ACTION_PREPROC_UNIT'
 
     final_input = Concatenate(axis=-1)([x1,x2])
 
-    x = model_hidden(final_input, nb_hidden, nb_hidden_unit)
+    x = model_hidden(final_input, nb_hidden, nb_hidden_unit, reg_const)
 
-    vh = value_head(x, nb_last_unit)
-    ph = policy_head(x, nb_last_unit)
+    vh = value_head(x, nb_last_unit, reg_const)
+    ph = policy_head(x, nb_last_unit, reg_const)
 
     model = Model(inputs=[main_input, my_info,my_history, *adv_info, *adv_history], outputs=[vh, ph])
     model.compile(loss={'value_head': 'mean_squared_error', 'policy_head': 'categorical_crossentropy'},
-        optimizer=SGD(lr=config.training_param['LEARNING_RATE_SCHEDULE'][0], momentum=config.training_param['MOMENTUM']),
+        optimizer=SGD(lr=lr, momentum=momentum),
         loss_weights={'value_head': 0.5, 'policy_head': 0.5})
     return model

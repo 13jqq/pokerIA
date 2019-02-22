@@ -12,6 +12,7 @@ import os
 
 num_game = 1000
 
+
 foldername = list(itertools.chain.from_iterable([to_list(config.game_param[k]) for k in config.game_param.keys()])) + list(itertools.chain.from_iterable([to_list(config.network_param[k]) for k in config.network_param.keys()]))
 foldername = "_".join([str(x) for x in foldername])
 

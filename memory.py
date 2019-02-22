@@ -6,13 +6,10 @@ import os
 
 
 class Memory:
-    def __init__(self, path=None, filename=None):
-        self.MEMORY_SIZE = config.training_param['MEMORY_SIZE']
+    def __init__(self, memory_size=config.training_param['MEMORY_SIZE']):
+        self.MEMORY_SIZE = memory_size
         self.ltmemory = deque(maxlen=self.MEMORY_SIZE)
         self.stmemory = deque(maxlen=self.MEMORY_SIZE)
-        if path is not None and filename is not None:
-            if os.path.exists(os.path.join(path, filename)):
-                self.load_lt_memory(path, filename)
 
     def commit_stmemory(self, uuid, input_state, output_probs, output_score):
         self.stmemory.append({
@@ -23,16 +20,7 @@ class Memory:
         })
 
     def commit_ltmemory(self):
-        for i in self.stmemory:
-            self.ltmemory.append(i)
-        self.clear_stmemory()
-
-    def commit_and_save_ltmemory(self, path, filename):
-        if len(self.stmemory) + len(self.ltmemory) > self.MEMORY_SIZE:
-            self.save_lt_memory(path, filename)
-            self.clear_ltmemory()
-        for i in self.stmemory:
-            self.ltmemory.append(i)
+        self.ltmemory.extend(list(self.stmemory))
         self.clear_stmemory()
 
     def clear_stmemory(self):
@@ -57,7 +45,7 @@ class Memory:
          'nn_input': [np.asarray(e['nn_input'][0]), np.asarray(e['nn_input'][1]), np.asarray(e['nn_input'][2]),
                       [np.asarray(x) for x in e['nn_input'][3]], [np.asarray(x) for x in e['nn_input'][4]]],
          'probs': np.asarray(e['probs']), 'score': np.asarray(e['score'])} for e in data]
-        self.ltmemory = deque(data, maxlen=self.MEMORY_SIZE)
+        self.ltmemory.extend(data)
 
 
     def convertToModelData(self, memoryType = 'st'):

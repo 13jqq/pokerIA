@@ -15,7 +15,7 @@ mccfr={
 training_param={
     'LOG_DIR':'D:/projetsIA/pokerIA/training_logs',
     'MEMORY_SIZE': 30000,
-    'BATCH_SIZE': 256,
+    'BATCH_SIZE': 4096,
     'EPOCHS': 1,
     'REG_CONST': 0.0001,
     'MOMENTUM': 0.9,
@@ -40,5 +40,5 @@ network_param={
     'HIDDEN_LAYERS_UNITS': 500,
     'LAST_LAYER_UNIT': 32,
     'LSTM_ACTION_PREPROC_UNIT': 100,
-    'PLAYER_SITUATION_PREPROC': 500
+    'PLAYER_SITUATION_PREPROC_UNIT': 500
 }

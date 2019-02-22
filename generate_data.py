@@ -18,6 +18,7 @@ data_folder = os.path.join(config.acquisition_param['ACQUISITION_DIR'], folderna
 log_folder_weights = os.path.join(config.training_param['LOG_DIR'], foldername,'weights')
 
 
+
 if not os.path.exists(data_folder):
     os.makedirs(data_folder)
 
@@ -31,6 +32,8 @@ if os.path.exists(log_folder_weights):
         log_weights.sort(key=lambda f: int(''.join(filter(str.isdigit, f))) or -1)
         model.load_weights(os.path.join(log_folder_weights,log_weights[-1]))
 
+if os.path.exists(os.path.join(data_folder,'latest_memory.json')):
+    memory.load_lt_memory(data_folder,'latest_memory.json')
 
 for game in range(starting_game, starting_game + num_game):
 
@@ -70,11 +73,14 @@ for game in range(starting_game, starting_game + num_game):
                     scorelist = [score[e['playerTurn']]] + [score[s] for s in score.keys() if s != e['playerTurn']]
                 for i in range(0,len(scorelist)):
                     e['score'][i] = scorelist[i]
-            print(len(memory.ltmemory))
-            memory.commit_and_save_ltmemory(data_folder,shortuuid.uuid()+'.json')
-            print(len(memory.ltmemory))
+            if (len(memory.ltmemory) + len(memory.stmemory)) > memory.MEMORY_SIZE:
+                memory.save_lt_memory(data_folder, shortuuid.uuid() + '.json')
+                memory.clear_ltmemory()
+            memory.commit_ltmemory()
+    memory.save_lt_memory(data_folder, 'latest_memory.json')
 
-memory.save_lt_memory(data_folder,shortuuid.uuid()+'.json')
+
+memory.save_lt_memory(data_folder,'latest_memory.json')
 
 
 
