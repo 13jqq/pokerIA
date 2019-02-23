@@ -5,6 +5,8 @@ from memory import Memory
 import config
 import os
 import itertools
+import numpy as np
+
 
 MAX_EVALS = 500
 epoch = 100000
@@ -35,16 +37,17 @@ def objective(params):
     return {'loss': hist.history['val_loss'][-1], 'params': params, 'status': STATUS_OK}
 
 space = {
-    'LSTM_ACTION_PREPROC_UNIT': ,
-    'PLAYER_SITUATION_PREPROC_UNIT': ,
-    'NB_HIDDEN_LAYERS': ,
-    'HIDDEN_LAYERS_UNITS': ,
-    'LAST_LAYER_UNIT': ,
-    'LEARNING_RATE': ,
-    'MOMENTUM': ,
-    'REG_CONST': ,
-    'BATCH_SIZE': ,
+    'LSTM_ACTION_PREPROC_UNIT': hp.qloguniform('LSTM_ACTION_PREPROC_UNIT', np.log(100), np.log(10000)),
+    'PLAYER_SITUATION_PREPROC_UNIT': hp.qloguniform('PLAYER_SITUATION_PREPROC_UNIT', np.log(100), np.log(10000)),
+    'NB_HIDDEN_LAYERS': hp.quniform('NB_HIDDEN_LAYERS', 1, 10),
+    'HIDDEN_LAYERS_UNITS': hp.qloguniform('HIDDEN_LAYERS_UNITS', np.log(100), np.log(10000)),
+    'LAST_LAYER_UNIT': hp.quniform('LAST_LAYER_UNIT', 1, 100),
+    'LEARNING_RATE': hp.loguniform('LEARNING_RATE', np.log(0.01), np.log(0.3)),
+    'MOMENTUM': hp.uniform('MOMENTUM', 0.0, 1.0),
+    'REG_CONST': hp.loguniform('REG_CONST', np.log(0.00001), np.log(0.01)),
+    'BATCH_SIZE': hp.choice('BATCH_SIZE',[1,2,4,8,16,32,64,128,256,512,1024,2048,4096,8192,16384])
 }
+
 
 trials = Trials()
 
