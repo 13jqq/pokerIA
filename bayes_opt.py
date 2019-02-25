@@ -8,7 +8,7 @@ import itertools
 import numpy as np
 
 
-MAX_EVALS = 500
+MAX_EVALS = 10
 epoch = 100000
 mem_limit = 100000
 

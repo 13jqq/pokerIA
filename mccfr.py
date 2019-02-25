@@ -52,7 +52,9 @@ class MCCFR():
         value = 0
 
         while not currentNode.isLeaf():
-            maxRU = float('-inf')
+
+            #We don't need this value anymore
+            #maxRU = float('-inf')
 
             if currentNode == self.root:
                 epsilon = config.mccfr['EPSILON']
@@ -61,22 +63,33 @@ class MCCFR():
                 epsilon = 0
                 nu = [0] * len(currentNode.edges)
 
-            Nb = 0
-            for action, edge in currentNode.edges:
-                Nb = Nb + edge.stats['N']
+            Nb = np.sum([edge.stats['N'] for action, edge in currentNode.edges])
+
+            # Replacing for loop with list completion and np sum func for speeding code
+            #for action, edge in currentNode.edges:
+            #    Nb = Nb + edge.stats['N']
+
             if currentNode.playerTurn == self.my_uuid:
-                for idx, (action, edge) in enumerate(currentNode.edges):
 
-                    U = (math.log((config.mccfr['CPUCT_BASE'] + 1 + edge.stats['N'])/config.mccfr['CPUCT_BASE']) + config.mccfr['CPUCT_INIT']) * \
-                        ((1 - epsilon) * edge.stats['P'] + epsilon * nu[idx]) * \
-                        np.sqrt(Nb) / (1 + edge.stats['N'])
+                idx = np.argmax([((math.log((config.mccfr['CPUCT_BASE'] + 1 + edge.stats['N'])/config.mccfr['CPUCT_BASE']) + config.mccfr['CPUCT_INIT']) * \
+                        ((1 - epsilon) * edge.stats['P'] + epsilon * nu[idx]) * np.sqrt(Nb) / (1 + edge.stats['N'])) + edge.stats['R'] for (action, edge) in currentNode.edges])
 
-                    R = edge.stats['R']
+                simulationAction, simulationEdge = currentNode.edges[idx]
 
-                    if R + U > maxRU:
-                        maxRU = R + U
-                        simulationAction = action
-                        simulationEdge = edge
+                #Replacing for loop with list completion and np argmax func for speeding code
+                #for idx, (action, edge) in enumerate(currentNode.edges):
+
+                #    U = ((math.log((config.mccfr['CPUCT_BASE'] + 1 + edge.stats['N'])/config.mccfr['CPUCT_BASE']) + config.mccfr['CPUCT_INIT']) * \
+                #        ((1 - epsilon) * edge.stats['P'] + epsilon * nu[idx]) * \
+                #        np.sqrt(Nb) / (1 + edge.stats['N']))
+
+                #    R = edge.stats['R']
+
+                #    if R + U > maxRU:
+                #        maxRU = R + U
+                #        simulationAction = action
+                #        simulationEdge = edge
+
             else:
                 main_input, my_info, my_history, adv_info, adv_history = currentNode.state.convertStateToModelInput()
                 preds = model.predict([main_input, my_info, my_history, *adv_info, *adv_history])
@@ -90,8 +103,11 @@ class MCCFR():
                 probs = probs[allowedActions]
                 action_idx = np.random.multinomial(1, probs)
                 chosen_action = np.where(action_idx == 1)[0][0]
-                for idx, (action, edge) in enumerate(currentNode.edges):
-                    edge.stats['P'] = probs[idx]
+
+                # With the simplification in the backfill function to calculate regret, we don't need the adv prob values anymore
+                #for idx, (action, edge) in enumerate(currentNode.edges):
+                #    edge.stats['P'] = probs[idx]
+
                 simulationAction = currentNode.edges[chosen_action][0]
                 simulationEdge = currentNode.edges[chosen_action][1]
 
@@ -106,17 +122,29 @@ class MCCFR():
 
         for idx, (node,selEdge) in enumerate(breadcrumbs):
             if node.playerTurn == self.my_uuid:
-                pisigziaz = np.prod([e[1].stats['P'] for e in breadcrumbs[idx + 1:]])
-                pisigziz = np.prod([e[1].stats['P'] for e in breadcrumbs[idx:]])
-                piadvzi = np.prod([e[1].stats['P'] for e in breadcrumbs[:idx] if e[0].playerTurn != node.playerTurn])
-                pisigprimez = 1 * np.prod([e[1].stats['P'] for e in breadcrumbs if e[0].playerTurn != node.playerTurn])
+                simplcoeff = np.prod([e[1].stats['P'] for e in breadcrumbs[idx + 1:] if e[0].playerTurn == node.playerTurn])
+
+                #Simplification of all the values underneath with simplcoeff
+                #pisigziaz = np.prod([e[1].stats['P'] for e in breadcrumbs[idx + 1:]])
+                #pisigziz = np.prod([e[1].stats['P'] for e in breadcrumbs[idx:]])
+                #piadvzi = np.prod([e[1].stats['P'] for e in breadcrumbs[:idx] if e[0].playerTurn != node.playerTurn])
+                #pisigprimez = 1 * np.prod([e[1].stats['P'] for e in breadcrumbs if e[0].playerTurn != node.playerTurn])
+
 
                 for action, edge in node.edges:
                     if selEdge.id == edge.id:
                         edge.stats['N'] = edge.stats['N'] + 1
-                        edge.stats['R'] = edge.stats['R'] + ((value * piadvzi)/pisigprimez) * (pisigziaz - pisigziz)
+
+                        #Rewriting the new simplificated regret expression with simplecoeff
+                        #edge.stats['R'] = edge.stats['R'] + ((value * piadvzi)/pisigprimez) * (pisigziaz - pisigziz)
+
+                        edge.stats['R'] = edge.stats['R'] + (value * simplcoeff * (1 - edge.stats['P']))
                     else:
-                        edge.stats['R'] = edge.stats['R'] - ((value * piadvzi)/pisigprimez) * pisigziz
+
+                        #Rewriting the new simplificated regret expression with simplecoeff
+                        #edge.stats['R'] = edge.stats['R'] - ((value * piadvzi)/pisigprimez) * pisigziz
+
+                        edge.stats['R'] = edge.stats['R'] - (value * simplcoeff * (edge.stats['P']))
 
     def addNode(self, node):
         self.tree[node.id] = node

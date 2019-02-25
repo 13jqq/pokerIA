@@ -10,7 +10,7 @@ import config
 import itertools
 import os
 
-num_game = 1000
+num_game = 10000
 
 
 foldername = list(itertools.chain.from_iterable([to_list(config.game_param[k]) for k in config.game_param.keys()])) + list(itertools.chain.from_iterable([to_list(config.network_param[k]) for k in config.network_param.keys()]))
@@ -86,6 +86,7 @@ for game in range(starting_game, starting_game + num_game):
                 scorelist = [score[e['playerTurn']]]
                 for i in range(0,len(scorelist)):
                     e['score'][i] = scorelist[i]
+
             memory.commit_ltmemory()
 
     data = memory.convertToModelData('lt')

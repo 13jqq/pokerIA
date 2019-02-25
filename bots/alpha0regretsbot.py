@@ -37,8 +37,11 @@ class Alpha0Regret(BasePokerPlayer):
             self.buildMCCFR(state)
         else:
             self.changeRootMCCFR(state)
-        for sim in range(self.MCCFR_simulations):
-            self.simulate()
+
+        [self.simulate() for sim in range(self.MCCFR_simulations)]
+
+        #for sim in range(self.MCCFR_simulations):
+        #    self.simulate()
 
         pi = self.getAV()
 

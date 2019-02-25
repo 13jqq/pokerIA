@@ -1,6 +1,6 @@
 import config
 from keras.models import Model
-from keras.layers import Input, Dense, BatchNormalization, LeakyReLU, Concatenate, average, LSTM, Masking, Softmax
+from keras.layers import Input, Dense, BatchNormalization, LeakyReLU, Concatenate, average, LSTM, Masking
 from keras.optimizers import SGD
 from keras import regularizers
 
