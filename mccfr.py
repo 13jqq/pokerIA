@@ -63,7 +63,7 @@ class MCCFR():
                 epsilon = 0
                 nu = [0] * len(currentNode.edges)
 
-            Nb = np.sum([edge.stats['N'] for action, edge in currentNode.edges])
+            Nb = sum([edge.stats['N'] for action, edge in currentNode.edges])
 
             # Replacing for loop with list completion and np sum func for speeding code
             #for action, edge in currentNode.edges:
@@ -72,7 +72,7 @@ class MCCFR():
             if currentNode.playerTurn == self.my_uuid:
 
                 idx = np.argmax([((math.log((config.mccfr['CPUCT_BASE'] + 1 + edge.stats['N'])/config.mccfr['CPUCT_BASE']) + config.mccfr['CPUCT_INIT']) * \
-                        ((1 - epsilon) * edge.stats['P'] + epsilon * nu[idx]) * np.sqrt(Nb) / (1 + edge.stats['N'])) + edge.stats['R'] for (action, edge) in currentNode.edges])
+                        ((1 - epsilon) * edge.stats['P'] + epsilon * nu[idx]) * np.sqrt(Nb) / (1 + edge.stats['N'])) + edge.stats['R'] for idx, (action, edge) in enumerate(currentNode.edges)])
 
                 simulationAction, simulationEdge = currentNode.edges[idx]
 
@@ -129,7 +129,6 @@ class MCCFR():
                 #pisigziz = np.prod([e[1].stats['P'] for e in breadcrumbs[idx:]])
                 #piadvzi = np.prod([e[1].stats['P'] for e in breadcrumbs[:idx] if e[0].playerTurn != node.playerTurn])
                 #pisigprimez = 1 * np.prod([e[1].stats['P'] for e in breadcrumbs if e[0].playerTurn != node.playerTurn])
-
 
                 for action, edge in node.edges:
                     if selEdge.id == edge.id:
